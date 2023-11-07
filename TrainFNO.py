@@ -48,13 +48,20 @@ if len(sys.argv) == 1:
     folder = "TrainedModels/"+"FNO_"+which_example
 
 else:
+    # Do we use a script to run the code (for cluster):
     folder = sys.argv[1]
-    training_properties = json.loads(sys.argv[2].replace("\'", "\""))
-    fno_architecture_ = json.loads(sys.argv[3].replace("\'", "\""))
+    
+    # Reading hyperparameters
+    with open(sys.argv[2], "r") as f:
+        training_properties = json.loads(f.read().replace("\'", "\""))
+    with open(sys.argv[3], "r") as f:
+        fno_architecture_ = json.loads(f.read().replace("\'", "\""))
+
+    # Determine problem to run and data location
     which_example = sys.argv[4]
+    dataloc = sys.argv[5]
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-#device = "cpu"
 writer = SummaryWriter(log_dir=folder)
 
 learning_rate = training_properties["learning_rate"]
@@ -70,9 +77,9 @@ p = training_properties["exp"]
 if which_example == "shear_layer":
     example = ShearLayer(fno_architecture_, device, batch_size, training_samples)
 elif which_example == "poisson":
-    example = SinFrequency(fno_architecture_, device, batch_size,training_samples)
+    example = SinFrequency(fno_architecture_, device, batch_size,training_samples, dataloc=dataloc)
 elif which_example == "wave_0_5":
-    example = WaveEquation(fno_architecture_, device, batch_size,training_samples)
+    example = WaveEquation(dataloc, fno_architecture_, device, batch_size,training_samples, dataloc=dataloc)
 elif which_example == "allen":
     example = AllenCahn(fno_architecture_, device, batch_size,training_samples)
 elif which_example == "cont_tran":

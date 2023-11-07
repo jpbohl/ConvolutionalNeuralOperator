@@ -358,7 +358,7 @@ class SinFrequency:
                                 ).to(device)
 
         #Change number of workers accoirding to your preference
-        num_workers = 1
+        num_workers = 16
 
         self.train_loader = DataLoader(SinFrequencyDataset(dataloc, "training", self.N_Fourier_F, training_samples, s), batch_size=batch_size, shuffle=True, num_workers=num_workers)
         self.val_loader = DataLoader(SinFrequencyDataset(dataloc, "validation", self.N_Fourier_F, training_samples, s), batch_size=batch_size, shuffle=False, num_workers=num_workers)
@@ -370,10 +370,10 @@ class SinFrequency:
 #Wave data
 
 class WaveEquationDataset(Dataset):
-    def __init__(self, which="training", nf=0, training_samples = 1024, t = 5, s = 64, in_dist = True):
+    def __init__(self, dataloc, which="training", nf=0, training_samples = 1024, t = 5, s = 64, in_dist = True):
         
         #Default file:
-        self.file_data = "data/WaveData_IN_24modes.h5"
+        self.file_data = dataloc + "WaveData_IN_24modes.h5"
         self.reader = h5py.File(self.file_data, 'r')
         
         #Load normaliation constants:
@@ -443,7 +443,7 @@ class WaveEquationDataset(Dataset):
 
 
 class WaveEquation:
-    def __init__(self, network_properties, device, batch_size, training_samples = 1024, s = 64, in_dist = True):
+    def __init__(self, network_properties, device, batch_size, training_samples = 1024, s = 64, in_dist = True, dataloc="data/"):
         #Must have parameters: ------------------------------------------------        
 
         if "in_size" in network_properties:
@@ -500,9 +500,9 @@ class WaveEquation:
         #Change number of workers accoirding to your preference
         num_workers = 16
         
-        self.train_loader = DataLoader(WaveEquationDataset("training", self.N_Fourier_F, training_samples, 5, s), batch_size=batch_size, shuffle=True, num_workers=num_workers)
-        self.val_loader = DataLoader(WaveEquationDataset("validation", self.N_Fourier_F, training_samples, 5, s), batch_size=batch_size, shuffle=False, num_workers=num_workers)
-        self.test_loader = DataLoader(WaveEquationDataset("test", self.N_Fourier_F, training_samples, 5, s, in_dist), batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        self.train_loader = DataLoader(WaveEquationDataset(dataloc, "training", self.N_Fourier_F, training_samples, 5, s), batch_size=batch_size, shuffle=True, num_workers=num_workers)
+        self.val_loader = DataLoader(WaveEquationDataset(dataloc, "validation", self.N_Fourier_F, training_samples, 5, s), batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        self.test_loader = DataLoader(WaveEquationDataset(dataloc, "test", self.N_Fourier_F, training_samples, 5, s, in_dist), batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
 #------------------------------------------------------------------------------
 #------------------------------------------------------------------------------

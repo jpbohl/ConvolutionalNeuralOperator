@@ -75,9 +75,16 @@ else:
     
     # Do we use a script to run the code (for cluster):
     folder = sys.argv[1]
-    training_properties = json.loads(sys.argv[2].replace("\'", "\""))
-    model_architecture_ = json.loads(sys.argv[3].replace("\'", "\""))
+    
+    # Reading hyperparameters
+    with open(sys.argv[2], "r") as f:
+        training_properties = json.loads(f.read().replace("\'", "\""))
+    with open(sys.argv[3], "r") as f:
+        model_architecture_ = json.loads(f.read().replace("\'", "\""))
+
+    # Determine problem to run and data location
     which_example = sys.argv[4]
+    dataloc = sys.argv[5]
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 writer = SummaryWriter(log_dir=folder) #usage of TensorBoard
@@ -103,9 +110,9 @@ df.to_csv(folder + '/net_architecture.txt', header=False, index=True, mode='w')
 if which_example == "shear_layer":
     example = ShearLayer(model_architecture_, device, batch_size, training_samples)
 elif which_example == "poisson":
-    example = SinFrequency(model_architecture_, device, batch_size, training_samples)
+    example = SinFrequency(model_architecture_, device, batch_size, training_samples, dataloc=dataloc)
 elif which_example == "wave_0_5":
-    example = WaveEquation(model_architecture_, device, batch_size, training_samples)
+    example = WaveEquation(model_architecture_, device, batch_size, training_samples, dataloc=dataloc)
 elif which_example == "allen":
     example = AllenCahn(model_architecture_, device, batch_size, training_samples)
 elif which_example == "cont_tran":
