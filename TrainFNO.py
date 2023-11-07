@@ -79,7 +79,7 @@ if which_example == "shear_layer":
 elif which_example == "poisson":
     example = SinFrequency(fno_architecture_, device, batch_size,training_samples, dataloc=dataloc)
 elif which_example == "wave_0_5":
-    example = WaveEquation(dataloc, fno_architecture_, device, batch_size,training_samples, dataloc=dataloc)
+    example = WaveEquation(fno_architecture_, device, batch_size,training_samples, dataloc=dataloc)
 elif which_example == "allen":
     example = AllenCahn(fno_architecture_, device, batch_size,training_samples)
 elif which_example == "cont_tran":
