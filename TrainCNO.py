@@ -66,7 +66,7 @@ if len(sys.argv) == 1:
     #   airfoil             : Compressible Euler equations
     
 
-    which_example = "airfoil"
+    which_example = "poisson"
 
     # Save the models here:
     folder = "TrainedModels/"+"CNO_"+which_example

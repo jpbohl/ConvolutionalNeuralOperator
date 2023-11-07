@@ -230,11 +230,11 @@ class ShearLayer:
 #Poisson data:
 
 class SinFrequencyDataset(Dataset):
-    def __init__(self, which="training", nf=0, training_samples = 1024, s=64, in_dist = True):
+    def __init__(self, dataloc, which="training", nf=0, training_samples = 1024, s=64, in_dist = True):
         
         
         #The file:
-        self.file_data = "data/PoissonData_IN_TRAINING.h5"
+        self.file_data = dataloc + "PoissonData_IN_TRAINING.h5"
         
         #Load normalization constants from the TRAINING set:
         self.reader = h5py.File(self.file_data, 'r')
@@ -302,7 +302,7 @@ class SinFrequencyDataset(Dataset):
 
 
 class SinFrequency:
-    def __init__(self, network_properties, device, batch_size, training_samples = 1024, s = 64, in_dist = True):
+    def __init__(self, network_properties, device, batch_size, training_samples = 1024, s = 64, in_dist = True, dataloc="data/"):
         
         #Must have parameters: ------------------------------------------------        
 
@@ -358,11 +358,11 @@ class SinFrequency:
                                 ).to(device)
 
         #Change number of workers accoirding to your preference
-        num_workers = 16
+        num_workers = 1
 
-        self.train_loader = DataLoader(SinFrequencyDataset("training", self.N_Fourier_F, training_samples, s), batch_size=batch_size, shuffle=True, num_workers=num_workers)
-        self.val_loader = DataLoader(SinFrequencyDataset("validation", self.N_Fourier_F, training_samples, s), batch_size=batch_size, shuffle=False, num_workers=num_workers)
-        self.test_loader = DataLoader(SinFrequencyDataset("test", self.N_Fourier_F, training_samples, s, in_dist), batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        self.train_loader = DataLoader(SinFrequencyDataset(dataloc, "training", self.N_Fourier_F, training_samples, s), batch_size=batch_size, shuffle=True, num_workers=num_workers)
+        self.val_loader = DataLoader(SinFrequencyDataset(dataloc, "validation", self.N_Fourier_F, training_samples, s), batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        self.test_loader = DataLoader(SinFrequencyDataset(dataloc, "test", self.N_Fourier_F, training_samples, s, in_dist), batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
 #------------------------------------------------------------------------------
 #------------------------------------------------------------------------------

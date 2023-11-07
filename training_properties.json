@@ -1,0 +1,10 @@
+{
+    "batch_size": 16,
+    "epochs": 500,
+    "exp": 1,
+    "learning_rate": 0.0005,
+    "scheduler_gamma": 0.98,
+    "scheduler_step": 10,
+    "training_samples": 256,
+    "weight_decay": 1e-10
+}

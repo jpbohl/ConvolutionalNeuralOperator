@@ -231,7 +231,7 @@ class SinFrequency:
         #----------------------------------------------------------------------        
 
         #Change number of workers accoirding to your preference
-        num_workers = 16
+        num_workers = 0
 
         self.train_loader = DataLoader(SinFrequencyDataset("training", self.N_Fourier_F, training_samples, s), batch_size=batch_size, shuffle=True, num_workers=num_workers)
         self.val_loader = DataLoader(SinFrequencyDataset("validation", self.N_Fourier_F, training_samples, s), batch_size=batch_size, shuffle=False, num_workers=num_workers)
@@ -333,7 +333,7 @@ class WaveEquation:
 
 
         #Change number of workers accoirding to your preference
-        num_workers = 16
+        num_workers = 0
         
         self.train_loader = DataLoader(WaveEquationDataset("training", self.N_Fourier_F, training_samples, 5, s), batch_size=batch_size, shuffle=True, num_workers=num_workers)
         self.val_loader = DataLoader(WaveEquationDataset("validation", self.N_Fourier_F, training_samples, 5, s), batch_size=batch_size, shuffle=False, num_workers=num_workers)

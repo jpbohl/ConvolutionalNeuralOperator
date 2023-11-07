@@ -21,7 +21,7 @@ if len(sys.argv) == 1:
         "epochs": 600,
         "batch_size": 16,
         "exp": 1,
-        "training_samples": 256,
+        "training_samples": 512,
     }
     fno_architecture_ = {
         "width": 32,
@@ -42,7 +42,7 @@ if len(sys.argv) == 1:
     #   airfoil             : Compressible Euler equations
     
 
-    which_example = "poisson"
+    which_example = "wave_0_5"
 
     # Save the models here:
     folder = "TrainedModels/"+"FNO_"+which_example
