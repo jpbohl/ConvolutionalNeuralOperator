@@ -9,6 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from Problems.Benchmarks import Airfoil, DiscContTranslation, ContTranslation, AllenCahn, SinFrequency, WaveEquation, ShearLayer
+from Problems.Straka import Straka
 
 if len(sys.argv) == 1:
 
@@ -66,7 +67,9 @@ if len(sys.argv) == 1:
     #   airfoil             : Compressible Euler equations
     
 
-    which_example = "poisson"
+    which_example = "straka"
+
+    dataloc = "/Users/jan/sempaper/straka_data/"
 
     # Save the models here:
     folder = "TrainedModels/"+"CNO_"+which_example
@@ -121,6 +124,8 @@ elif which_example == "disc_tran":
     example = DiscContTranslation(model_architecture_, device, batch_size, training_samples)
 elif which_example == "airfoil":
     example = Airfoil(model_architecture_, device, batch_size, training_samples)
+elif which_example == "straka":
+    example = Straka(model_architecture_, device, batch_size, training_samples, dataloc=dataloc)
 else:
     raise ValueError()
 

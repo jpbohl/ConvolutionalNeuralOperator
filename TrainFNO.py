@@ -9,6 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from Problems.FNOBenchmarks import Airfoil, DiscContTranslation, ContTranslation, AllenCahn, SinFrequency, WaveEquation, ShearLayer
+from Problems.Straka import StrakaFNO
 from datetime import date
 
 if len(sys.argv) == 1:
@@ -21,7 +22,7 @@ if len(sys.argv) == 1:
         "epochs": 600,
         "batch_size": 16,
         "exp": 1,
-        "training_samples": 512,
+        "training_samples": 400,
     }
     fno_architecture_ = {
         "width": 32,
@@ -42,10 +43,11 @@ if len(sys.argv) == 1:
     #   airfoil             : Compressible Euler equations
     
 
-    which_example = "wave_0_5"
+    which_example = "straka"
 
     # Save the models here:
     folder = "TrainedModels/"+"FNO_"+which_example
+    dataloc = "/Users/jan/sempaper/straka_data/"
 
 else:
     # Do we use a script to run the code (for cluster):
@@ -88,6 +90,8 @@ elif which_example == "disc_tran":
     example = DiscContTranslation(fno_architecture_, device, batch_size,training_samples)
 elif which_example == "airfoil":
     example = Airfoil(fno_architecture_, device, batch_size, training_samples)
+elif which_example == "straka":
+    example = StrakaFNO(fno_architecture_, device, batch_size, training_samples, dataloc=dataloc)
 else:
     raise ValueError("the variable which_example has to be one between darcy")
 
