@@ -3,3 +3,7 @@ desktop.ini
 /data/
 /TrainedModels
 *.pyc
+
+*.out
+*.ipynb
+.ipynb_checkpoints/
