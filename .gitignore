@@ -7,3 +7,9 @@ desktop.ini
 *.out
 *.ipynb
 .ipynb_checkpoints/
+
+# Ignore json config files
+*.json
+
+# Ignore bash scripts
+*.sh
