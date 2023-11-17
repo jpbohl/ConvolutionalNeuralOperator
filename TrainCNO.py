@@ -18,10 +18,10 @@ if len(sys.argv) == 1:
         "weight_decay": 1e-10,
         "scheduler_step": 10,
         "scheduler_gamma": 0.98,
-        "epochs": 500,
+        "epochs": 2,
         "batch_size": 16,
         "exp": 1, #Do we use L1 or L2 errors? Default: L1
-        "training_samples": 256, #How many training samples?
+        "training_samples": 4, #How many training samples?
     }
     model_architecture_ = {
        
@@ -38,7 +38,7 @@ if len(sys.argv) == 1:
         #----------------------------------------------------------------------
         #Parameters that depend on the problem: 
         
-        "in_size": 64, #Resolution of the computational grid
+        "in_size": 128, #Resolution of the computational grid
         "retrain": 4, #Random seed
         
         #----------------------------------------------------------------------

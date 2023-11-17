@@ -19,10 +19,10 @@ if len(sys.argv) == 1:
         "weight_decay": 1e-8,
         "scheduler_step": 0.97,
         "scheduler_gamma": 10,
-        "epochs": 600,
+        "epochs": 5,
         "batch_size": 16,
         "exp": 1,
-        "training_samples": 400,
+        "training_samples": 3,
     }
     fno_architecture_ = {
         "width": 32,
