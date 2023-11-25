@@ -3,3 +3,16 @@ desktop.ini
 /data/
 /TrainedModels
 *.pyc
+
+*.out
+*.ipynb
+.ipynb_checkpoints/
+
+# Ignore json config files
+*.json
+
+# Ignore bash scripts
+*.sh
+
+# Ignore pngs 
+*.png

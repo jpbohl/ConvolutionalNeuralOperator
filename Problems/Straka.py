@@ -100,16 +100,17 @@ class StrakaDataset(Dataset):
                 self.density.append(float(row[1]))
                 self.files.append(row[2])
 
-        self.files_t0 = [dataloc + f + "/fields/0.nc" for f in self.files]
-        self.files_t1 = [dataloc + f + "/fields/300.nc" for f in self.files]
+        total_samples = training_samples + 2 * 56
+        self.files_t0 = [dataloc + f + "/fields/0.nc" for f in self.files[:total_samples]]
+        self.files_t1 = [dataloc + f + "/fields/300.nc" for f in self.files[:total_samples]]
                     
         drop = ["u", "v", "w", "s", "buoyancy_frequency"]
         self.t0 = xr.open_mfdataset(self.files_t0, combine="nested", concat_dim="index", parallel=True, drop_variables=drop).temperature                    
         self.t1 = xr.open_mfdataset(self.files_t1, combine="nested", concat_dim="index", parallel=True, drop_variables=drop).temperature
-        
+
         # Background profile 
         self.bpf = self.t0.isel(index=0, x=0).data
-
+        
         # Selecting windows of interest
         self.t0 = self.t0.isel(x=np.arange(511, 511+128))
         self.t1 = self.t1.isel(x=np.arange(511, 511+128))
@@ -130,7 +131,7 @@ class StrakaDataset(Dataset):
 
         self.s = s #Sampling rate
         self.nsamples = len(self.viscosity) # Determine number of samples
-        self.ntest = round((self.nsamples - training_samples) / 2)
+        self.ntest = 56
 
         self.cno = cno # Determines if dataset is used for cno or fno
 
