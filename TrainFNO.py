@@ -30,6 +30,7 @@ if len(sys.argv) == 1:
         "FourierF" : 0, #Number of Fourier Features in the input channels. Default is 0.
         "n_layers": 2, #Number of Fourier layers
         "retrain": 4, #Random seed
+        "in_size":256
     }
     
     #   "which_example" can be 
@@ -44,6 +45,7 @@ if len(sys.argv) == 1:
     
 
     which_example = "straka"
+    time = 600
 
     # Save the models here:
     folder = "TrainedModels/"+"FNO_"+which_example
@@ -51,7 +53,7 @@ if len(sys.argv) == 1:
 
 else:
     # Do we use a script to run the code (for cluster):
-    folder = sys.argv[1]
+    folder = sys.argv[1] + f"FNOStraka{sys.argv[5]}"
     
     # Reading hyperparameters
     with open(sys.argv[2], "r") as f:
@@ -61,7 +63,7 @@ else:
 
     # Determine problem to run and data location
     which_example = sys.argv[4]
-    dataloc = sys.argv[5]
+    dataloc = sys.argv[6]
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 writer = SummaryWriter(log_dir=folder)
@@ -74,6 +76,7 @@ scheduler_step = training_properties["scheduler_step"]
 scheduler_gamma = training_properties["scheduler_gamma"]
 training_samples = training_properties["training_samples"]
 p = training_properties["exp"]
+s = fno_architecture_["in_size"]
 
 
 if which_example == "shear_layer":
@@ -91,7 +94,7 @@ elif which_example == "disc_tran":
 elif which_example == "airfoil":
     example = Airfoil(fno_architecture_, device, batch_size, training_samples)
 elif which_example == "straka":
-    example = StrakaFNO(fno_architecture_, device, batch_size, training_samples, dataloc=dataloc)
+    example = StrakaFNO(fno_architecture_, device, batch_size, training_samples,time=time, s=s, dataloc=dataloc)
 else:
     raise ValueError("the variable which_example has to be one between darcy")
 

@@ -28,7 +28,7 @@ if len(sys.argv) == 1:
         #----------------------------------------------------------------------
         #Parameters to be chosen with model selection:
             
-        "N_layers": 6, #Number of (D) + (U) layers. In our experiments, N_layers must be even.
+        "N_layers": 2, #Number of (D) + (U) layers. In our experiments, N_layers must be even.
         "kernel_size": 3, #Kernel size.
         "channel_multiplier": 32, #Parameter d_e (how the number of channels changes)
         
@@ -38,7 +38,7 @@ if len(sys.argv) == 1:
         #----------------------------------------------------------------------
         #Parameters that depend on the problem: 
         
-        "in_size": 128, #Resolution of the computational grid
+        "in_size": 256, #Resolution of the computational grid
         "retrain": 4, #Random seed
         
         #----------------------------------------------------------------------
@@ -68,6 +68,7 @@ if len(sys.argv) == 1:
     
 
     which_example = "straka"
+    time = 600
 
     dataloc = "/Users/jan/sempaper/straka_data/"
 
@@ -77,7 +78,7 @@ if len(sys.argv) == 1:
 else:
     
     # Do we use a script to run the code (for cluster):
-    folder = sys.argv[1]
+    folder = sys.argv[1] + f"CNOStraka{sys.argv[5]}"
     
     # Reading hyperparameters
     with open(sys.argv[2], "r") as f:
@@ -87,7 +88,8 @@ else:
 
     # Determine problem to run and data location
     which_example = sys.argv[4]
-    dataloc = sys.argv[5]
+    time = sys.argv[5]
+    dataloc = sys.argv[6]
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 writer = SummaryWriter(log_dir=folder) #usage of TensorBoard
@@ -100,6 +102,7 @@ scheduler_step = training_properties["scheduler_step"]
 scheduler_gamma = training_properties["scheduler_gamma"]
 training_samples = training_properties["training_samples"]
 p = training_properties["exp"]
+s = model_architecture_["in_size"]
 
 if not os.path.isdir(folder):
     print("Generated new folder")
@@ -125,7 +128,7 @@ elif which_example == "disc_tran":
 elif which_example == "airfoil":
     example = Airfoil(model_architecture_, device, batch_size, training_samples)
 elif which_example == "straka":
-    example = Straka(model_architecture_, device, batch_size, training_samples, dataloc=dataloc)
+    example = Straka(model_architecture_, device, batch_size, training_samples, time=time, s=s, dataloc=dataloc)
 else:
     raise ValueError()
 
