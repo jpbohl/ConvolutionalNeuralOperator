@@ -13,3 +13,6 @@ desktop.ini
 
 # Ignore bash scripts
 *.sh
+
+# Ignore pngs 
+*.png
