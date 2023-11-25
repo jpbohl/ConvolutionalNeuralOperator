@@ -19,12 +19,9 @@ torch.manual_seed(0)
 np.random.seed(0)
 random.seed(0)
 
-
-
 #------------------------------------------------------------------------------
 
 # Some functions needed for loading the Navier-Stokes data
-
 def samples_fft(u):
     return scipy.fft.fft2(u, norm='forward', workers=-1)
 
@@ -106,16 +103,16 @@ class StrakaDataset(Dataset):
         self.files_t0 = [dataloc + f + "/fields/0.nc" for f in self.files]
         self.files_t1 = [dataloc + f + "/fields/300.nc" for f in self.files]
                     
-        # TODO: Drop unneeded variables
-        self.t0 = xr.open_mfdataset(self.files_t0, combine="nested", concat_dim="index", parallel=True).temperature                    
-        self.t1 = xr.open_mfdataset(self.files_t1, combine="nested", concat_dim="index", parallel=True).temperature
+        drop = ["u", "v", "w", "s", "buoyancy_frequency"]
+        self.t0 = xr.open_mfdataset(self.files_t0, combine="nested", concat_dim="index", parallel=True, drop_variables=drop).temperature                    
+        self.t1 = xr.open_mfdataset(self.files_t1, combine="nested", concat_dim="index", parallel=True, drop_variables=drop).temperature
+        
+        # Background profile 
+        self.bpf = self.t0.isel(index=0, x=0).data
 
         # Selecting windows of interest
         self.t0 = self.t0.isel(x=np.arange(511, 511+128))
         self.t1 = self.t1.isel(x=np.arange(511, 511+128))
-
-        # Background profile 
-        self.bpf = self.t0.isel(index=0, x=0).data
 
         # Removing background profile
         self.t0 = self.t0 - self.bpf
