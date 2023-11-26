@@ -82,7 +82,7 @@ def default_param(network_properties):
 
 class StrakaDataset(Dataset):
     def __init__(self, dataloc, which="training", nf=0, training_samples = 400, time=300, s=128, in_dist = True, cno=True):
-        
+
         #Overview file:
         with open(dataloc + "overview.csv") as f:
             reader = csv.reader(f, delimiter=",")
@@ -125,6 +125,9 @@ class StrakaDataset(Dataset):
 
             self.t0 = self.t0.isel(x=np.arange(511, 511+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
             self.t1 = self.t1.isel(x=np.arange(511, 511+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
+
+        else:
+            raise NotImplementedError("Only Timesteps 300 and 600 implemented")
 
         # Computing stats for standardization
         self.mean_ic = self.t0.mean().compute()
@@ -193,7 +196,7 @@ class StrakaDataset(Dataset):
         inputs = (inputs - self.mean_data) / self.std_data
         labels = (labels - self.mean_model) / self.std_model
 
-        # Reshape tensors to nchannels x s x (shape expected by CNO code)
+        # Reshape tensors to nchannels x s x s (shape expected by CNO code)
         if self.cno:
             inputs = torch.movedim(inputs, -1, 0)
             labels = torch.movedim(labels, -1, 0)
@@ -204,6 +207,9 @@ class StrakaDataset(Dataset):
             ff_grid = FF(grid)
             ff_grid = ff_grid.permute(2, 0, 1)
             inputs = torch.cat((inputs, ff_grid), 0)
+
+        assert not inputs.isnan().any()
+        assert not labels.isnan().any()
 
         return inputs, labels
 
@@ -276,11 +282,14 @@ class Straka:
                                 ).to(device)
 
         #Change number of workers accoirding to your preference
-        num_workers = 0
+        num_workers = 16
 
-        self.train_loader = DataLoader(StrakaDataset(dataloc, "training", self.N_Fourier_F, training_samples, time, s), batch_size=batch_size, shuffle=True, num_workers=num_workers)
-        self.val_loader = DataLoader(StrakaDataset(dataloc, "validation", self.N_Fourier_F, training_samples, time, s), batch_size=batch_size, shuffle=False, num_workers=num_workers)
-        self.test_loader = DataLoader(StrakaDataset(dataloc, "test", self.N_Fourier_F, training_samples, time, s, in_dist), batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        self.train_loader = DataLoader(StrakaDataset(dataloc, "training", self.N_Fourier_F, training_samples, time=time, s=s), 
+                                batch_size=batch_size, shuffle=True, num_workers=num_workers)
+        self.val_loader = DataLoader(StrakaDataset(dataloc, "validation", self.N_Fourier_F, training_samples, time=time, s=s), 
+                                batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        self.test_loader = DataLoader(StrakaDataset(dataloc, "test", self.N_Fourier_F, training_samples, time=time, s=s, in_dist=in_dist), 
+                                batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
 
 class StrakaFNO:
@@ -299,8 +308,11 @@ class StrakaFNO:
         #----------------------------------------------------------------------  
 
         #Change number of workers accoirding to your preference
-        num_workers = 0
+        num_workers = 16
         
-        self.train_loader = DataLoader(StrakaDataset(dataloc, "training", self.N_Fourier_F, training_samples, time, s, cno=False), batch_size=batch_size, shuffle=True, num_workers=num_workers)
-        self.val_loader = DataLoader(StrakaDataset(dataloc, "validation", self.N_Fourier_F, training_samples, time, s, cno=False), batch_size=batch_size, shuffle=False, num_workers=num_workers)
-        self.test_loader = DataLoader(StrakaDataset(dataloc, "test", self.N_Fourier_F, training_samples, time, s, in_dist, cno=False), batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        self.train_loader = DataLoader(StrakaDataset(dataloc, "training", self.N_Fourier_F, training_samples, time=time, s=s, cno=False), 
+                                batch_size=batch_size, shuffle=True, num_workers=num_workers)
+        self.val_loader = DataLoader(StrakaDataset(dataloc, "validation", self.N_Fourier_F, training_samples, time=time, s=s, cno=False), 
+                                batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        self.test_loader = DataLoader(StrakaDataset(dataloc, "test", self.N_Fourier_F, training_samples, time=time, s=s, in_dist=in_dist, cno=False), 
+                                batch_size=batch_size, shuffle=False, num_workers=num_workers)

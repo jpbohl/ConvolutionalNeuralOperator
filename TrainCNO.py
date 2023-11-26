@@ -8,7 +8,6 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from Problems.Benchmarks import Airfoil, DiscContTranslation, ContTranslation, AllenCahn, SinFrequency, WaveEquation, ShearLayer
 from Problems.Straka import Straka
 
 if len(sys.argv) == 1:
@@ -88,7 +87,7 @@ else:
 
     # Determine problem to run and data location
     which_example = sys.argv[4]
-    time = sys.argv[5]
+    time = int(sys.argv[5])
     dataloc = sys.argv[6]
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -113,21 +112,7 @@ df.to_csv(folder + '/training_properties.txt', header=False, index=True, mode='w
 df = pd.DataFrame.from_dict([model_architecture_]).T
 df.to_csv(folder + '/net_architecture.txt', header=False, index=True, mode='w')
 
-if which_example == "shear_layer":
-    example = ShearLayer(model_architecture_, device, batch_size, training_samples)
-elif which_example == "poisson":
-    example = SinFrequency(model_architecture_, device, batch_size, training_samples, dataloc=dataloc)
-elif which_example == "wave_0_5":
-    example = WaveEquation(model_architecture_, device, batch_size, training_samples, dataloc=dataloc)
-elif which_example == "allen":
-    example = AllenCahn(model_architecture_, device, batch_size, training_samples)
-elif which_example == "cont_tran":
-    example = ContTranslation(model_architecture_, device, batch_size, training_samples)
-elif which_example == "disc_tran":
-    example = DiscContTranslation(model_architecture_, device, batch_size, training_samples)
-elif which_example == "airfoil":
-    example = Airfoil(model_architecture_, device, batch_size, training_samples)
-elif which_example == "straka":
+if which_example == "straka":
     example = Straka(model_architecture_, device, batch_size, training_samples, time=time, s=s, dataloc=dataloc)
 else:
     raise ValueError()
