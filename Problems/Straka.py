@@ -7,8 +7,8 @@ import numpy as np
 import torch
 from torch.utils.data import TensorDataset, DataLoader
 
-from ModelModule import ContConv2D
-from _OtherModels.FNOModules import FNO2d
+from CNOModule import CNO
+from FNOModules import FNO2d
 from torch.utils.data import Dataset
 
 import xarray
@@ -245,6 +245,11 @@ class Straka:
         else:
             raise ValueError("You must specify the number of (R) blocks.")
         
+        if "N_res_neck" in network_properties:
+                N_res_neck = network_properties["N_res_neck"]        
+        else:
+            raise ValueError("You must specify the number of (R)-neck blocks.")
+        
         
         #Load default parameters if they are not in network_properties
         network_properties = default_param(network_properties)
@@ -267,20 +272,20 @@ class Straka:
         
         #----------------------------------------------------------------------
 
-        self.model = ContConv2D(in_channels=3 + 2 * self.N_Fourier_F,  # Number of input channels.
+        self.model = CNO(in_dim=3 + 2 * self.N_Fourier_F,  # Number of input channels.
                                 in_size=s,
                                 cutoff_den=cutoff_den,
                                 N_layers=N_layers,
                                 N_res=N_res,
+                                N_res_neck=N_res_neck,
                                 radial=radial,
                                 filter_size=filter_size,
                                 conv_kernel=kernel_size,
                                 lrelu_upsampling = lrelu_upsampling,
                                 half_width_mult = half_width_mult,
                                 channel_multiplier = channel_multiplier,
-                                length_res = res_len
                                 ).to(device)
-
+        
         #Change number of workers accoirding to your preference
         num_workers = 16
 

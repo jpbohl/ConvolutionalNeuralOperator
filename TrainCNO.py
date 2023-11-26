@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from Problems.Straka import Straka
 
-if len(sys.argv) == 2:
+if len(sys.argv) == 1:
     
     training_properties = {
         "learning_rate": 0.001, 
@@ -31,7 +31,7 @@ if len(sys.argv) == 2:
         "N_res_neck" : 6,         # Number of (R) blocks in the BN
         
         #Other parameters:
-        "in_size": 64,            # Resolution of the computational grid
+        "in_size": 128,            # Resolution of the computational grid
         "retrain": 4,             # Random seed
         "kernel_size": 3,         # Kernel size.
         "FourierF": 0,            # Number of Fourier Features in the input channels. Default is 0.
@@ -57,7 +57,7 @@ if len(sys.argv) == 2:
     
 
     which_example = "straka"
-    time = 600
+    time = 300
 
     dataloc = "/Users/jan/sempaper/straka_data/"
 
