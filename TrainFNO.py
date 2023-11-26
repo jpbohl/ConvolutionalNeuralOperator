@@ -8,7 +8,6 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from Problems.FNOBenchmarks import Airfoil, DiscContTranslation, ContTranslation, AllenCahn, SinFrequency, WaveEquation, ShearLayer
 from Problems.Straka import StrakaFNO
 from datetime import date
 
@@ -63,6 +62,7 @@ else:
 
     # Determine problem to run and data location
     which_example = sys.argv[4]
+    time = int(sys.argv[5])
     dataloc = sys.argv[6]
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -79,24 +79,10 @@ p = training_properties["exp"]
 s = fno_architecture_["in_size"]
 
 
-if which_example == "shear_layer":
-    example = ShearLayer(fno_architecture_, device, batch_size, training_samples)
-elif which_example == "poisson":
-    example = SinFrequency(fno_architecture_, device, batch_size,training_samples, dataloc=dataloc)
-elif which_example == "wave_0_5":
-    example = WaveEquation(fno_architecture_, device, batch_size,training_samples, dataloc=dataloc)
-elif which_example == "allen":
-    example = AllenCahn(fno_architecture_, device, batch_size,training_samples)
-elif which_example == "cont_tran":
-    example = ContTranslation(fno_architecture_, device, batch_size,training_samples)
-elif which_example == "disc_tran":
-    example = DiscContTranslation(fno_architecture_, device, batch_size,training_samples)
-elif which_example == "airfoil":
-    example = Airfoil(fno_architecture_, device, batch_size, training_samples)
-elif which_example == "straka":
+if which_example == "straka":
     example = StrakaFNO(fno_architecture_, device, batch_size, training_samples,time=time, s=s, dataloc=dataloc)
 else:
-    raise ValueError("the variable which_example has to be one between darcy")
+    raise ValueError("Problem not implemented")
 
 if not os.path.isdir(folder):
     print("Generated new folder")
