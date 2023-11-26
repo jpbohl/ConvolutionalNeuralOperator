@@ -8,8 +8,6 @@ from torch.utils.data import TensorDataset, DataLoader
 from FNOModules import FNO2d
 from training.FourierFeatures import FourierFeatures
 
-import netCDF4
-import scipy
 from torch.utils.data import Dataset
 
 torch.manual_seed(0)
@@ -21,17 +19,19 @@ random.seed(0)
 
 # Some functions needed for loading the Navier-Stokes data
 
+import scipy.fft as fft
+
 def samples_fft(u):
-    return scipy.fft.fft2(u, norm='forward', workers=-1)
+    return fft.fft2(u, norm='forward', workers=-1)
 
 
 def samples_ifft(u_hat):
-    return scipy.fft.ifft2(u_hat, norm='forward', workers=-1).real
+    return fft.ifft2(u_hat, norm='forward', workers=-1).real
 
 
 def downsample(u, N):
     N_old = u.shape[-2]
-    freqs = scipy.fft.fftfreq(N_old, d=1 / N_old)
+    freqs = fft.fftfreq(N_old, d=1 / N_old)
     sel = np.logical_and(freqs >= -N / 2, freqs <= N / 2 - 1)
     u_hat = samples_fft(u)
     u_hat_down = u_hat[:, :, sel, :][:, :, :, sel]
@@ -40,114 +40,183 @@ def downsample(u, N):
 
 #------------------------------------------------------------------------------
 
+#Load default parameters:
+    
+def default_param(network_properties):
+    
+    if "modes" not in network_properties:
+        network_properties["modes"] = 16
+    
+    if "width" not in network_properties:
+        network_properties["width"] = 32
+    
+    if "n_layers" not in network_properties:
+        network_properties["n_layers"] = 4
+
+    if "padding" not in network_properties:
+        network_properties["padding"] = 0
+    
+    if "include_grid" not in network_properties:
+        network_properties["include_grid"] = 1
+    
+    if "FourierF" not in network_properties:
+        network_properties["FourierF"] = 0
+    
+    if "retrain" not in network_properties:
+        network_properties["retrain"] = 4
+    
+    return network_properties
+
+
+#------------------------------------------------------------------------------
+
 #NOTE:
 #All the training sets should be in the folder: data/
 
 #------------------------------------------------------------------------------
 #Navier-Stokes data:
+#   From 0 to 750 : training samples (750)
+#   From 1024 - 128 - 128 to 1024 - 128 : validation samples (128)
+#   From 1024 - 128 to 1024 : test samples (128)
+#   Out-of-distribution testing samples: 0 to 128 (128)
+
+class ShearLayerDataset(Dataset):
+    def __init__(self, which="training", nf=0, training_samples = 1024, s=64, in_dist = True):
+        
+        self.s = s
+        self.in_dist = in_dist
+        #The file:
+        
+        if in_dist:
+            if self.s==64:
+                self.file_data = "data/NavierStokes_64x64_IN.h5" #In-distribution file 64x64               
+            else:
+                self.file_data = "data/NavierStokes_128x128_IN.h5"   #In-distribution file 128x128
+        else:
+            self.file_data = "data/NavierStokes_128x128_OUT.h5"  #Out-of_-distribution file 128x128
+        
+        self.reader = h5py.File(self.file_data, 'r') 
+        self.N_max = 1024
+
+        self.n_val  = 128
+        self.n_test = 128
+        self.min_data = 1.4307903051376343
+        self.max_data = -1.4307903051376343
+        self.min_model = 2.0603253841400146
+        self.max_model= -2.0383243560791016
+        
+        if which == "training":
+            self.length = training_samples
+            self.start = 0
+        elif which == "validation":
+            self.length = self.n_val
+            self.start = self.N_max - self.n_val - self.n_test
+        elif which == "test":
+            self.length = self.n_test
+            self.start = self.N_max  - self.n_test
+        
+        #Fourier modes (Default is 0):
+        self.N_Fourier_F = nf
+        
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, index):
+        
+        if self.s == 64 and self.in_dist:
+            inputs = torch.from_numpy(self.reader['Sample_' + str(index + self.start)]["input"][:]).type(torch.float32).reshape(1, self.s, self.s)
+            labels = torch.from_numpy(self.reader['Sample_' + str(index + self.start)]["output"][:]).type(torch.float32).reshape(1, self.s, self.s)
+
+        else:
+            
+            inputs = self.reader['Sample_' + str(index + self.start)]["input"][:].reshape(1,1,self.s, self.s)
+            labels = self.reader['Sample_' + str(index + self.start)]["output"][:].reshape(1,1, self.s, self.s)
+            
+            if self.s<128:
+                inputs = downsample(inputs, self.s).reshape(1, self.s, self.s)
+                labels = downsample(labels, self.s).reshape(1, self.s, self.s)
+            else:
+                inputs = inputs.reshape(1, 128, 128)
+                labels = labels.reshape(1, 128, 128)
+            
+            inputs = torch.from_numpy(inputs).type(torch.float32)
+            labels = torch.from_numpy(labels).type(torch.float32)
+            
+        inputs = (inputs - self.min_data)/(self.max_data - self.min_data)
+        labels = (labels - self.min_model)/(self.max_model - self.min_model)
+        
+        
+        if self.N_Fourier_F > 0:
+            grid = self.get_grid()
+            FF = FourierFeatures(1, self.N_Fourier_F, grid.device)
+            ff_grid = FF(grid)
+            ff_grid = ff_grid.permute(2, 0, 1)
+            inputs = torch.cat((inputs, ff_grid), 0)
+                
+        return inputs.permute(1, 2, 0), labels.permute(1, 2, 0)
+
+    def get_grid(self):
+        x = torch.linspace(0, 1, self.s)
+        y = torch.linspace(0, 1, self.s)
+
+        x_grid, y_grid = torch.meshgrid(x, y)
+
+        x_grid = x_grid.unsqueeze(-1)
+        y_grid = y_grid.unsqueeze(-1)
+        grid = torch.cat((x_grid, y_grid), -1)
+        return grid    
 
 
 class ShearLayer:
-    def __init__(self, network_properties, device, batch_size, training_samples, in_size = 64, file = "ddsl_N128/", in_dist = True):
+    def __init__(self, network_properties, device, batch_size, training_samples, in_size = 64, file = "ddsl_N128/", in_dist = True, padding = 4):
         
         if "in_size" in network_properties:
             self.in_size = network_properties["in_size"]
+            s = self.in_size
         else:
             self.in_size = 64
+            s = 64
 
+        network_properties = default_param(network_properties)
+        self.N_Fourier_F = network_properties["FourierF"]
+        
         retrain = network_properties["retrain"]
         torch.manual_seed(retrain)
         
-        if in_dist:
-            folder = "data/Euler_Shear/" #In-distribution file
-        else:
-            folder = "data/Euler_Shear_0_05/" #Out-of_-distribution file
-            
         #----------------------------------------------------------------------
         
-        samples_inputs, samples_outputs = self.get_data(folder + file, 1024)
+        self.model = FNO2d(fno_architecture = network_properties, 
+                            in_channels = 1 + 2 * self.N_Fourier_F, 
+                            out_channels = 1, 
+                            device=device)        
         
-        #Normalization constants:
-        m = 1.4294605255126953
-        M = -1.4294605255126953
-        samples_inputs  = self.normalize(samples_inputs, m, M)
-        m = 2.0602376461029053
-        M = -2.0383081436157227
-        samples_outputs = self.normalize(samples_outputs, m, M)
-
-        #Training samples
-        training_inputs = samples_inputs[:training_samples]
-        training_outputs = samples_outputs[:training_samples]
-
-        #Validation samples
-        val_inputs = samples_inputs[896:] 
-        val_outputs = samples_outputs[896:]
+        #----------------------------------------------------------------------
         
-        #Test samples:
-        testing_inputs = samples_inputs[750:750+128] 
-        testing_outputs = samples_outputs[750:750+128]
-
-        if "FourierF" in network_properties:
-            self.N_Fourier_F = network_properties["FourierF"]
-        else:
-            self.N_Fourier_F = 0
-        
-        self.model = FNO2d(network_properties, device, 0, 1 + 2 * self.N_Fourier_F)
-        
-        self.train_loader = DataLoader(TensorDataset(training_inputs, training_outputs), batch_size=batch_size, shuffle=True)
-        self.val_loader = DataLoader(TensorDataset(val_inputs, val_outputs), batch_size=batch_size, shuffle=False)
-        self.test_loader = DataLoader(TensorDataset(testing_inputs, testing_outputs), batch_size=batch_size, shuffle=False)
-        
-    def normalize(self, data, m, M):
-        return (data - m) / (M - m)
-
-    def get_data(self, folder, n_samples):
-        input_data = np.zeros((n_samples, 1 , self.in_size, self.in_size))
-        output_data = np.zeros((n_samples, 1, self.in_size, self.in_size))
-
-        for i in range(n_samples):
-            
-            file_input  = folder + "sample_" + str(i) + "_time_0.nc" 
-            file_output = folder + "sample_" + str(i) + "_time_10.nc" 
-
-            f = netCDF4.Dataset(file_input,'r')
-            if self.in_size<128:
-                input_data[i, 0] = downsample(np.array(f.variables['u'][:]).reshape(1,1,128,128), self.in_size)
-            else:
-                input_data[i, 0] = np.array(f.variables['u'][:])
-            f.close()
-
-            f = netCDF4.Dataset(file_output,'r')
-            if self.in_size<128:
-                output_data[i, 0] = downsample(np.array(f.variables['u'][:]).reshape(1,1,128,128), self.in_size)
-            else:
-                output_data[i, 0] = np.array(f.variables['u'][:])
-            f.close()
-            
-        return torch.tensor(input_data).type(torch.float32).permute(0, 2, 3, 1), torch.tensor(output_data).type(torch.float32).permute(0, 2, 3, 1)
-
-    def get_grid(self):
-
-        grid = torch.zeros((self.in_size, self.in_size, 2))
-
-        for i in range(self.in_size):
-            for j in range(self.in_size):
-                grid[i, j][0] = i / (self.in_size - 1)
-                grid[i, j][1] = j / (self.in_size - 1)
-
-        return grid
-
+        #Change number of workers accoirding to your preference
+        num_workers = 0
+        self.train_loader = DataLoader(ShearLayerDataset("training", self.N_Fourier_F, training_samples, s), batch_size=batch_size, shuffle=True, num_workers=8)
+        self.val_loader = DataLoader(ShearLayerDataset("validation", self.N_Fourier_F, training_samples, s), batch_size=batch_size, shuffle=False, num_workers=8)
+        self.test_loader = DataLoader(ShearLayerDataset("test", self.N_Fourier_F, training_samples, s, in_dist), batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
 #------------------------------------------------------------------------------
 #------------------------------------------------------------------------------
-
 #Poisson data:
+#   From 0 to 1024 : training samples (1024)
+#   From 1024 to 1024 + 128 : validation samples (128)
+#   From 1024 + 128 to 1024 + 128 + 256 : test samples (256)
+#   Out-of-distribution testing samples: 0 to 256 (256)
 
 class SinFrequencyDataset(Dataset):
     def __init__(self, dataloc, which="training", nf=0, training_samples = 1024,  s=64, in_dist = True):
         #The file:
         self.file_data = dataloc + "PoissonData_IN_TRAINING.h5"
         
+        #The file:
+        if in_dist:
+            self.file_data = "data/PoissonData_64x64_IN.h5"
+        else:
+            self.file_data = "data/PoissonData_64x64_OUT.h5"
+
         #Load normalization constants from the TRAINING set:
         self.reader = h5py.File(self.file_data, 'r')
         self.min_data = self.reader['min_inp'][()]
@@ -164,11 +233,10 @@ class SinFrequencyDataset(Dataset):
             self.length = 128
             self.start = 1024
         elif which == "test":
-            if in_dist: #Is it in-distribution?
+            if in_dist:
                 self.length = 256
                 self.start = 1024+128
             else:
-                self.file_data = "data/PoissonData_OUT2_20modes.h5"
                 self.length = 256
                 self.start = 0 
         
@@ -182,18 +250,18 @@ class SinFrequencyDataset(Dataset):
         
         #Fourier modes (Default is 0):
         self.N_Fourier_F = nf
-
+        
     def __len__(self):
         return self.length
 
     def __getitem__(self, index):
-                
         inputs = torch.from_numpy(self.reader['Sample_' + str(index + self.start)]["input"][:]).type(torch.float32).reshape(1, self.s, self.s)
         labels = torch.from_numpy(self.reader['Sample_' + str(index + self.start)]["output"][:]).type(torch.float32).reshape(1, self.s, self.s)
 
         inputs = (inputs - self.min_data)/(self.max_data - self.min_data)
         labels = (labels - self.min_model)/(self.max_model - self.min_model)
-
+        
+        
         if self.N_Fourier_F > 0:
             grid = self.get_grid()
             FF = FourierFeatures(1, self.N_Fourier_F, grid.device)
@@ -218,20 +286,23 @@ class SinFrequencyDataset(Dataset):
 class SinFrequency:
     def __init__(self, network_properties, device, batch_size, training_samples = 1024, s = 64, in_dist = True, dataloc="data"):
 
+        network_properties = default_param(network_properties)
+        self.N_Fourier_F = network_properties["FourierF"]
+        
         retrain = network_properties["retrain"]
         torch.manual_seed(retrain)
-
-        if "FourierF" in network_properties:
-            self.N_Fourier_F = network_properties["FourierF"]
-        else:
-            self.N_Fourier_F = 0
         
-        self.model = FNO2d(network_properties, device, 0, 1 + 2 * self.N_Fourier_F)
+        #----------------------------------------------------------------------
+        
+        self.model = FNO2d(fno_architecture = network_properties, 
+                            in_channels = 1 + 2 * self.N_Fourier_F, 
+                            out_channels = 1, 
+                            device=device)        
 
         #----------------------------------------------------------------------        
 
         #Change number of workers accoirding to your preference
-        num_workers = 16
+        num_workers = 0
 
         self.train_loader = DataLoader(SinFrequencyDataset(dataloc, "training", self.N_Fourier_F, training_samples, s), batch_size=batch_size, shuffle=True, num_workers=num_workers)
         self.val_loader = DataLoader(SinFrequencyDataset(dataloc, "validation", self.N_Fourier_F, training_samples, s), batch_size=batch_size, shuffle=False, num_workers=num_workers)
@@ -241,6 +312,10 @@ class SinFrequency:
 #------------------------------------------------------------------------------
 
 #Wave data:
+#   From 0 to 512 : training samples (512)
+#   From 1024 to 1024 + 128 : validation samples (128)
+#   From 1024 + 128 to 1024 + 128 + 256 : test samples (256)
+#   Out-of-distribution testing samples: 0 to 256 (256)
 
 class WaveEquationDataset(Dataset):
     def __init__(self, dataloc, which="training", nf=0, training_samples = 1024, t = 5, s = 64, in_dist = True):
@@ -255,9 +330,9 @@ class WaveEquationDataset(Dataset):
         self.min_model = self.reader['min_u'][()]
         self.max_model = self.reader['max_u'][()]
         
-        #What time?
+        #What time? DEFAULT : t = 5
         self.t = t
-        
+                        
         if which == "training":
             self.length = training_samples
             self.start = 0
@@ -269,7 +344,6 @@ class WaveEquationDataset(Dataset):
                 self.length = 256
                 self.start = 1024 + 128
             else:
-                self.file_data = "data/WaveData_OUT_32modes_085decay.h5"
                 self.length = 256
                 self.start = 0
         
@@ -284,7 +358,7 @@ class WaveEquationDataset(Dataset):
         #Fourier modes (Default is 0):
         self.N_Fourier_F = nf
         
-
+        
     def __len__(self):
         return self.length
 
@@ -301,6 +375,8 @@ class WaveEquationDataset(Dataset):
             ff_grid = FF(grid)
             ff_grid = ff_grid.permute(2, 0, 1)
             inputs = torch.cat((inputs, ff_grid), 0)
+        
+        #inputs = inputs + 0.05*torch.randn_like(inputs)
 
         return inputs.permute(1, 2, 0), labels.permute(1, 2, 0)
 
@@ -319,21 +395,23 @@ class WaveEquationDataset(Dataset):
 class WaveEquation:
     def __init__(self, network_properties, device, batch_size, training_samples = 1024, s = 64, in_dist = True, dataloc="data/"):
         
+        network_properties = default_param(network_properties)
+        self.N_Fourier_F = network_properties["FourierF"]
+        
         retrain = network_properties["retrain"]
         torch.manual_seed(retrain)
-
-        if "FourierF" in network_properties:
-            self.N_Fourier_F = network_properties["FourierF"]
-        else:
-            self.N_Fourier_F = 0
         
-        self.model = FNO2d(network_properties, device, 0, 1 + 2 * self.N_Fourier_F)
+        #----------------------------------------------------------------------
+        
+        self.model = FNO2d(fno_architecture = network_properties, 
+                            in_channels = 1 + 2 * self.N_Fourier_F, 
+                            out_channels = 1, 
+                            device=device)        
 
-        #----------------------------------------------------------------------  
-
+        #----------------------------------------------------------------------        
 
         #Change number of workers accoirding to your preference
-        num_workers = 16
+        num_workers = 8
         
         self.train_loader = DataLoader(WaveEquationDataset(dataloc, "training", self.N_Fourier_F, training_samples, 5, s), batch_size=batch_size, shuffle=True, num_workers=num_workers)
         self.val_loader = DataLoader(WaveEquationDataset(dataloc, "validation", self.N_Fourier_F, training_samples, 5, s), batch_size=batch_size, shuffle=False, num_workers=num_workers)
@@ -341,23 +419,28 @@ class WaveEquation:
 
 #------------------------------------------------------------------------------
 
+#Allen-Cahn data
+#   From 0 to 256 : training samples (256)
+#   From 256 to 256 + 128 : validation samples (128)
+#   From 256 + 128 to 256 + 128 + 128 : test samples (128)
+#   Out-of-distribution testing samples: 0 to 128 (128)
+
 class AllenCahnDataset(Dataset):
     def __init__(self, which="training", nf = 0, training_samples = 1024, s=64, in_dist = True):
         
-        if which == "training":
-            self.length = training_samples
-            self.start = 0
-
         #Default file:
-        self.file_data = "data/AllenCahn_NEW.h5"
+        if in_dist:
+            self.file_data = "data/AllenCahn_64x64_IN.h5"
+        else:            
+            self.file_data = "data/AllenCahn_64x64_OUT.h5"
         self.reader = h5py.File(self.file_data, 'r')
         
-        #Load normaliation constants:
+        #Load normalization constants:
         self.min_data = self.reader['min_u0'][()]
         self.max_data = self.reader['max_u0'][()]
         self.min_model = self.reader['min_u'][()]
         self.max_model = self.reader['max_u'][()]
-        
+                
         if which == "training":
             self.length = training_samples
             self.start = 0
@@ -369,24 +452,18 @@ class AllenCahnDataset(Dataset):
                 self.length = 128
                 self.start = 256 + 128
             else:
-                self.file_data = "data/AllenCahn_OUT_16modes_random_decay_085_115.h5"
                 self.length = 128
-                self.start = 0
-
-        #If the reader changed:
-        self.reader = h5py.File(self.file_data, 'r') 
+                self.start = 0 
         
         #Default:
         self.N_Fourier_F = nf
         
 
-        
-        
     def __len__(self):
         return self.length
 
     def __getitem__(self, index):
-        
+
         inputs = torch.from_numpy(self.reader['Sample_' + str(index + self.start)]["input"][:]).type(torch.float32).reshape(1, 64, 64)
         labels = torch.from_numpy(self.reader['Sample_' + str(index + self.start)]["output"][:]).type(torch.float32).reshape(1, 64, 64)
 
@@ -399,6 +476,7 @@ class AllenCahnDataset(Dataset):
             ff_grid = FF(grid)
             ff_grid = ff_grid.permute(2, 0, 1)
             inputs = torch.cat((inputs, ff_grid), 0)
+        #print(inputs.shape)    
 
         return inputs.permute(1, 2, 0), labels.permute(1, 2, 0)
 
@@ -417,69 +495,79 @@ class AllenCahnDataset(Dataset):
 class AllenCahn:
     def __init__(self, network_properties, device, batch_size, training_samples = 1024, s = 64, in_dist = True):
         
+        network_properties = default_param(network_properties)
+        self.N_Fourier_F = network_properties["FourierF"]
+        
         retrain = network_properties["retrain"]
         torch.manual_seed(retrain)
-
-        if "FourierF" in network_properties:
-            self.N_Fourier_F = network_properties["FourierF"]
-        else:
-            self.N_Fourier_F = 0
         
-        self.model = FNO2d(network_properties, device, 0, 1 + 2 * self.N_Fourier_F)
+        #----------------------------------------------------------------------
+        
+        self.model = FNO2d(fno_architecture = network_properties, 
+                            in_channels = 1 + 2 * self.N_Fourier_F, 
+                            out_channels = 1, 
+                            device=device)        
 
-        #----------------------------------------------------------------------  
-
+        #----------------------------------------------------------------------        
 
         #Change number of workers accoirding to your preference
-        num_workers = 16
+        num_workers = 0
 
         self.train_loader = DataLoader(AllenCahnDataset("training", self.N_Fourier_F, training_samples, s), batch_size=batch_size, shuffle=True, num_workers=num_workers)
         self.val_loader = DataLoader(AllenCahnDataset("validation", self.N_Fourier_F, training_samples, s), batch_size=batch_size, shuffle=False, num_workers=num_workers)
         self.test_loader = DataLoader(AllenCahnDataset("test", self.N_Fourier_F, training_samples, s, in_dist), batch_size=batch_size, shuffle=False, num_workers=num_workers)
-
+        
 
 #------------------------------------------------------------------------------
 #------------------------------------------------------------------------------
 
 ##Smooth Transport data
+#   From 0 to 512 : training samples (512)
+#   From 512 to 512 + 256 : validation samples (256)
+#   From 512 + 256 to 512 + 256 + 256 : test samples (256)
+#   Out-of-distribution testing samples: 0 to 256 (256)
 
 class ContTranslationDataset(Dataset):
     def __init__(self, which="training", nf=0, training_samples = 512, s = 64, in_dist = True):
         
         #The data is already normalized
-        #The in-distribution and out-of-distribution data is a bit mixed up, so you should use the code below to load it properly
         
+        #Default file:       
+        if in_dist:
+            self.file_data = "data/ContTranslation_64x64_IN.h5"
+        else:
+            self.file_data = "data/ContTranslation_64x64_OUT.h5"
+        
+        print(self.file_data)
+        self.reader = h5py.File(self.file_data, 'r') 
+
         if which == "training":
             self.length = training_samples
             self.start = 0
-            self.file_data = "data/ContTranslation.h5"
         elif which == "validation":
-             self.length = 256
-             self.start = 0
-             self.file_data = "data/ContTranslation_test_in_sample.h5"
+            self.length = 256
+            self.start = 512
         elif which == "test":
             if in_dist:
                 self.length = 256
-                self.start = 256
-                self.file_data = "data/ContTranslation_test_in_sample.h5" 
+                self.start = 512 + 256
             else:
                 self.length = 256
-                self.start = 512+256
-                self.file_data = "data/ContTranslation.h5"
+                self.start = 0
 
-        self.reader = h5py.File(self.file_data, 'r') 
-        
         #Default:
         self.N_Fourier_F = nf
         
-
     def __len__(self):
         return self.length
 
     def __getitem__(self, index):
-
+        
+        #print("I AM HERE BRE")
+        
         inputs = torch.from_numpy(self.reader['Sample_' + str(index + self.start)]["input"][:]).type(torch.float32).reshape(1, 64, 64)
         labels = torch.from_numpy(self.reader['Sample_' + str(index + self.start)]["output"][:]).type(torch.float32).reshape(1, 64, 64)
+
 
         if self.N_Fourier_F > 0:
             grid = self.get_grid()
@@ -504,21 +592,24 @@ class ContTranslationDataset(Dataset):
 
 class ContTranslation:
     def __init__(self, network_properties, device, batch_size, training_samples = 512,  s = 64, in_dist = True):
+        
+        network_properties = default_param(network_properties)
+        self.N_Fourier_F = network_properties["FourierF"]
+        
         retrain = network_properties["retrain"]
         torch.manual_seed(retrain)
-
-        if "FourierF" in network_properties:
-            self.N_Fourier_F = network_properties["FourierF"]
-        else:
-            self.N_Fourier_F = 0
         
-        self.model = FNO2d(network_properties, device, 0, 1 + 2 * self.N_Fourier_F)
+        #----------------------------------------------------------------------
+        
+        self.model = FNO2d(fno_architecture = network_properties, 
+                            in_channels = 1 + 2 * self.N_Fourier_F, 
+                            out_channels = 1, 
+                            device=device)        
 
-        #----------------------------------------------------------------------  
-
+        #----------------------------------------------------------------------    
 
         #Change number of workers accoirding to your preference
-        num_workers = 16
+        num_workers = 0
         
         self.train_loader = DataLoader(ContTranslationDataset("training", self.N_Fourier_F, training_samples, s), batch_size=batch_size, shuffle=True, num_workers=num_workers)
         self.val_loader = DataLoader(ContTranslationDataset("validation", self.N_Fourier_F, training_samples, s), batch_size=batch_size, shuffle=False, num_workers=num_workers)
@@ -526,44 +617,52 @@ class ContTranslation:
 
         
 #------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+
+#Discontinuous Transport data
+#   From 0 to 512 : training samples (512)
+#   From 512 to 512 + 256 : validation samples (256)
+#   From 512 + 256 to 512 + 256 + 256 : test samples (256)
+#   Out-of-distribution testing samples: 0 to 256 (256)
 
 class DiscContTranslationDataset(Dataset):
     def __init__(self, which="training", nf=0, training_samples = 512, s = 64, in_dist = True):
         
         #The data is already normalized
-        #The in-distribution and out-of-distribution data is a bit mixed up, so you should use the code below to load it properly
         
-        self.file_data = "data/DiscTranslation.h5"
+        if in_dist:
+            self.file_data = "data/DiscTranslation_64x64_IN.h5"
+        else:
+            self.file_data = "data/DiscTranslation_64x64_OUT.h5"
         
         if which == "training":
             self.length = training_samples
             self.start = 0
             
         elif which == "validation":
-             self.length = 256
-             self.start = 512
+            self.length = 256
+            self.start = 512
         elif which == "test":
             if in_dist:
                 self.length = 256
                 self.start = 512+256
             else:
                 self.length = 256
-                self.start = 1024
+                self.start = 0
 
         self.reader = h5py.File(self.file_data, 'r') 
 
         #Default:
         self.N_Fourier_F = nf
-
+        
     def __len__(self):
         return self.length
 
     def __getitem__(self, index):
         
-        #print("I AM HERE BRE")
-        
         inputs = torch.from_numpy(self.reader['Sample_' + str(index + self.start)]["input"][:]).type(torch.float32).reshape(1, 64, 64)
         labels = torch.from_numpy(self.reader['Sample_' + str(index + self.start)]["output"][:]).type(torch.float32).reshape(1, 64, 64)
+
 
         if self.N_Fourier_F > 0:
             grid = self.get_grid()
@@ -589,20 +688,23 @@ class DiscContTranslationDataset(Dataset):
 class DiscContTranslation:
     def __init__(self, network_properties, device, batch_size, training_samples = 512, s = 64, in_dist = True):
         
+        network_properties = default_param(network_properties)
+        self.N_Fourier_F = network_properties["FourierF"]
+        
         retrain = network_properties["retrain"]
         torch.manual_seed(retrain)
-
-        if "FourierF" in network_properties:
-            self.N_Fourier_F = network_properties["FourierF"]
-        else:
-            self.N_Fourier_F = 0
         
-        self.model = FNO2d(network_properties, device, 0, 1 + 2 * self.N_Fourier_F)
+        #----------------------------------------------------------------------
+        
+        self.model = FNO2d(fno_architecture = network_properties, 
+                            in_channels = 1 + 2 * self.N_Fourier_F, 
+                            out_channels = 1, 
+                            device=device)        
 
         #----------------------------------------------------------------------  
 
         #Change number of workers accoirding to your preference
-        num_workers = 16
+        num_workers = 0
 
         self.train_loader = DataLoader(DiscContTranslationDataset("training", self.N_Fourier_F, training_samples, s), batch_size=batch_size, shuffle=True, num_workers=num_workers)
         self.val_loader = DataLoader(DiscContTranslationDataset("validation", self.N_Fourier_F, training_samples, s), batch_size=batch_size, shuffle=False, num_workers=num_workers)
@@ -612,21 +714,30 @@ class DiscContTranslation:
 #------------------------------------------------------------------------------
 
 #Compressible Euler data
-      
+#   From 0 to 750 : training samples (750)
+#   From 750 to 750 + 128 : validation samples (128)
+#   From 750 + 128 to 750 + 128 + 128 : test samples (128)
+#   Out-of-distribution testing samples: 0 to 128 (128)
+            
 class AirfoilDataset(Dataset):
     def __init__(self, which="training", nf=0, training_samples = 512, s = 128, in_dist = True):
         
         #We DO NOT normalize the data in this case
+                
+        if in_dist:
+            self.file_data = "data/Airfoil_128x128_IN.h5"
+        else:
+            self.file_data = "data/Airfoil_128x128_OUT.h5"
         
-        self.file_data = "data/Airfoil.h5"
+        #in_dist = False
         
         if which == "training":
             self.length = training_samples
             self.start = 0
             
         elif which == "validation":
-             self.length = 128
-             self.start = 750
+            self.length = 128
+            self.start = 750
         elif which == "test":
             if in_dist:
                 self.length = 128
@@ -634,7 +745,6 @@ class AirfoilDataset(Dataset):
             else:
                 self.length = 128
                 self.start = 0
-                self.file_data = "data/Airfoil_out.h5"
 
         self.reader = h5py.File(self.file_data, 'r') 
 
@@ -642,15 +752,15 @@ class AirfoilDataset(Dataset):
         self.N_Fourier_F = nf
         
         
-
     def __len__(self):
         return self.length
 
     def __getitem__(self, index):
-
-        inputs = torch.from_numpy(self.reader['Sample_' + str(index + self.start)]["input"][:]).type(torch.float32)[90:90+256, 128:128+256][::2,::2].reshape(1, 128, 128)
-        labels = torch.from_numpy(self.reader['Sample_' + str(index + self.start)]["output"][:]).type(torch.float32)[90:90+256, 128:128+256][::2,::2].reshape(1, 128, 128)
-
+        
+        inputs = torch.from_numpy(self.reader['Sample_' + str(index + self.start)]["input"][:]).type(torch.float32).reshape(1, 128, 128)
+        labels = torch.from_numpy(self.reader['Sample_' + str(index + self.start)]["output"][:]).type(torch.float32).reshape(1, 128, 128)
+        
+        
         if self.N_Fourier_F > 0:
             grid = self.get_grid()
             FF = FourierFeatures(1, self.N_Fourier_F, grid.device)
@@ -675,21 +785,122 @@ class AirfoilDataset(Dataset):
 class Airfoil:
     def __init__(self, network_properties, device, batch_size, training_samples = 512, s = 128, in_dist = True):
         
+        network_properties = default_param(network_properties)
+        self.N_Fourier_F = network_properties["FourierF"]
+        
         retrain = network_properties["retrain"]
         torch.manual_seed(retrain)
-
-        if "FourierF" in network_properties:
-            self.N_Fourier_F = network_properties["FourierF"]
-        else:
-            self.N_Fourier_F = 0
         
-        self.model = FNO2d(network_properties, device, 0, 1 + 2 * self.N_Fourier_F)
+        #----------------------------------------------------------------------
+        
+        self.model = FNO2d(fno_architecture = network_properties, 
+                            in_channels = 1 + 2 * self.N_Fourier_F, 
+                            out_channels = 1, 
+                            device=device)        
 
         #----------------------------------------------------------------------  
 
         #Change number of workers accoirding to your preference
-        num_workers = 16
+        num_workers = 0
 
         self.train_loader = DataLoader(AirfoilDataset("training", self.N_Fourier_F, training_samples, s), batch_size=batch_size, shuffle=True, num_workers=num_workers)
         self.val_loader = DataLoader(AirfoilDataset("validation", self.N_Fourier_F, training_samples, s), batch_size=batch_size, shuffle=False, num_workers=num_workers)
         self.test_loader = DataLoader(AirfoilDataset("test", self.N_Fourier_F, training_samples, s, in_dist), batch_size=batch_size, shuffle=False, num_workers=num_workers)
+
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+
+#Darcy Flow data
+#   From 0 to 256 : training samples (256)
+#   From 256 to 256 + 128 : validation samples (128)
+#   From 256 + 128 to 256 + 128 + 128 : test samples (128)
+#   Out-of-distribution testing samples: 0 to 128 (128)
+
+class DarcyDataset(Dataset):
+    def __init__(self, which="training", nf=0, training_samples=256, insample=True):
+
+        if insample:
+            self.file_data = "data/Darcy_64x64_IN.h5"
+        else:
+            self.file_data = "data/Darcy_64x64_IN.h5"
+        
+        
+        self.reader = h5py.File(self.file_data, 'r')
+
+        self.min_data = self.reader['min_inp'][()]
+        self.max_data = self.reader['max_inp'][()]
+        self.min_model = self.reader['min_out'][()]
+        self.max_model = self.reader['max_out'][()]
+                
+        if which == "training":
+            self.length = training_samples
+            self.start = 0
+        elif which == "validation":
+            self.length = 128
+            self.start = training_samples
+        elif which == "testing":
+            if insample:
+                self.length = 128
+                self.start = training_samples + 128
+            else:
+                self.length = 128
+                self.start = 0
+
+        self.N_Fourier_F = nf
+
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, index):
+        inputs = torch.from_numpy(self.reader['sample_' + str(index + self.start)]["input"][:]).type(torch.float32).reshape(1, 64, 64)
+        labels = torch.from_numpy(self.reader['sample_' + str(index + self.start)]["output"][:]).type(torch.float32).reshape(1, 64, 64)
+
+        inputs = (inputs - self.min_data) / (self.max_data - self.min_data)
+        labels = (labels - self.min_model) / (self.max_model - self.min_model)
+
+        if self.N_Fourier_F > 0:
+            grid = self.get_grid()
+            grid = grid.permute(2, 0, 1)
+            inputs = torch.cat((inputs, grid), 0)
+
+        return inputs.permute(1, 2, 0), labels.permute(1, 2, 0)
+
+    def get_grid(self):
+        x = torch.linspace(0, 1, 64)
+        y = torch.linspace(0, 1, 64)
+
+        x_grid, y_grid = torch.meshgrid(x, y)
+
+        x_grid = x_grid.unsqueeze(-1)
+        y_grid = y_grid.unsqueeze(-1)
+        grid = torch.cat((x_grid, y_grid), -1)
+
+        if self.N_Fourier_F > 0:
+            FF = FourierFeatures(1, self.N_Fourier_F, grid.device)
+            grid = FF(grid)
+        return grid
+
+class Darcy:
+    def __init__(self, network_properties, device, batch_size, training_samples = 512,  s = 64, in_dist = True):
+        
+        network_properties = default_param(network_properties)
+        self.N_Fourier_F = network_properties["FourierF"]
+        
+        retrain = network_properties["retrain"]
+        torch.manual_seed(retrain)
+        
+        #----------------------------------------------------------------------
+        
+        self.model = FNO2d(fno_architecture = network_properties, 
+                            in_channels = 1 + 2 * self.N_Fourier_F, 
+                            out_channels = 1, 
+                            device=device)        
+
+        #----------------------------------------------------------------------  
+
+        #Change number of workers accoirding to your preference
+        num_workers = 0
+
+        self.train_loader = DataLoader(DarcyDataset("training", self.N_Fourier_F, training_samples), batch_size=batch_size, shuffle=True, num_workers=num_workers)
+        self.val_loader = DataLoader(DarcyDataset("validation", self.N_Fourier_F, training_samples), batch_size=batch_size, shuffle=True, num_workers=num_workers)
+        self.test_loader = DataLoader(DarcyDataset("testing", self.N_Fourier_F, training_samples, in_dist), batch_size=batch_size, shuffle=False, num_workers=num_workers)
