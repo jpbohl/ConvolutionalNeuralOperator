@@ -81,7 +81,7 @@ def default_param(network_properties):
 #Poisson data:
 
 class StrakaDataset(Dataset):
-    def __init__(self, dataloc, which="training", nf=0, training_samples = 400, time=300, s=128, in_dist = True, cno=True):
+    def __init__(self, dataloc, which="training", nf=0, training_samples = 400, time=300, s=128, ntest=56, in_dist = True, cno=True):
         
         #Overview file:
         with open(dataloc + "overview.csv") as f:
@@ -100,7 +100,7 @@ class StrakaDataset(Dataset):
                 self.density.append(float(row[1]))
                 self.files.append(row[2])
 
-        total_samples = training_samples + 2 * 56
+        total_samples = training_samples + 2 * ntest
         self.files_t0 = [dataloc + f + "/fields/0.nc" for f in self.files[:total_samples]]
         self.files_t1 = [dataloc + f + f"/fields/{time}.nc" for f in self.files[:total_samples]]
                     
@@ -138,7 +138,7 @@ class StrakaDataset(Dataset):
 
         self.s = s #Sampling rate
         self.nsamples = len(self.viscosity) # Determine number of samples
-        self.ntest = 56
+        self.ntest = ntest
 
         self.cno = cno # Determines if dataset is used for cno or fno
 
@@ -220,7 +220,7 @@ class StrakaDataset(Dataset):
 
 
 class Straka:
-    def __init__(self, network_properties, device, batch_size, training_samples = 400,time=300, s = 128, in_dist = True, dataloc="data/"):
+    def __init__(self, network_properties, device, batch_size, training_samples = 400,time=300, s = 128, ntest=56, in_dist = True, dataloc="data/"):
         
         #Must have parameters: ------------------------------------------------        
 
@@ -278,9 +278,9 @@ class Straka:
         #Change number of workers accoirding to your preference
         num_workers = 0
 
-        self.train_loader = DataLoader(StrakaDataset(dataloc, "training", self.N_Fourier_F, training_samples, time, s), batch_size=batch_size, shuffle=True, num_workers=num_workers)
-        self.val_loader = DataLoader(StrakaDataset(dataloc, "validation", self.N_Fourier_F, training_samples, time, s), batch_size=batch_size, shuffle=False, num_workers=num_workers)
-        self.test_loader = DataLoader(StrakaDataset(dataloc, "test", self.N_Fourier_F, training_samples, time, s, in_dist), batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        self.train_loader = DataLoader(StrakaDataset(dataloc, "training", self.N_Fourier_F, training_samples, time, s, ntest=ntest), batch_size=batch_size, shuffle=True, num_workers=num_workers)
+        self.val_loader = DataLoader(StrakaDataset(dataloc, "validation", self.N_Fourier_F, training_samples, time, s, ntest=ntest), batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        self.test_loader = DataLoader(StrakaDataset(dataloc, "test", self.N_Fourier_F, training_samples, time, s, in_dist=in_dist, ntest=ntest), batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
 
 class StrakaFNO:
