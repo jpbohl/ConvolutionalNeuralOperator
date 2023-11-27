@@ -110,7 +110,9 @@ df = pd.DataFrame.from_dict([model_architecture_]).T
 df.to_csv(folder + '/net_architecture.txt', header=False, index=True, mode='w')
 
 if which_example == "straka":
+    print("Loading example")
     example = Straka(model_architecture_, device, batch_size, training_samples, time=time, s=s, dataloc=dataloc)
+    print("Loaded example")
 else:
     raise ValueError()
     
@@ -242,4 +244,3 @@ for epoch in range(epochs):
         break
 
 log_plots(best_model, val_loader)
-    

@@ -66,6 +66,7 @@ else:
     which_example = sys.argv[4]
     time = int(sys.argv[5])
     dataloc = sys.argv[6]
+    print("Loaded arguments")
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -89,7 +90,10 @@ s = fno_architecture_["in_size"]
 
 
 if which_example == "straka":
+    print("Loading example")
     example = StrakaFNO(fno_architecture_, device, batch_size, training_samples,time=time, s=s, dataloc=dataloc)
+    print("Loaded example")
+
 else:
     raise ValueError("Problem not implemented")
 
@@ -208,7 +212,7 @@ for epoch in range(epochs):
         tepoch.set_postfix({'Train loss': train_mse, "Relative Train": train_relative_l2, "Relative Val loss": test_relative_l2})
         tepoch.close()
         
-        #print(epoch, "val_loss/val_loss", test_relative_l2, epoch)
+        print(epoch, "val_loss/val_loss", test_relative_l2, epoch)
         
         with open(folder + '/errors.txt', 'w') as file:
             file.write("Training Error: " + str(train_mse) + "\n")
@@ -219,6 +223,5 @@ for epoch in range(epochs):
     
     if counter > patience:
         print("Early Stopping")
-        break
         
 log_plots(best_model, test_loader)

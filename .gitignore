@@ -3,6 +3,7 @@ desktop.ini
 /data/
 /TrainedModels
 *.pyc
+/__pycache__/
 
 *.out
 *.ipynb

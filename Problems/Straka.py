@@ -1,3 +1,4 @@
+import os
 import random
 import os
 import csv
@@ -288,7 +289,7 @@ class Straka:
                                 ).to(device)
         
         #Change number of workers accoirding to your preference
-        num_workers = 0
+        num_workers = 8
 
         self.train_loader = DataLoader(StrakaDataset(dataloc, "training", self.N_Fourier_F, training_samples, time, s, ntest=ntest), batch_size=batch_size, shuffle=True, num_workers=num_workers)
         self.val_loader = DataLoader(StrakaDataset(dataloc, "validation", self.N_Fourier_F, training_samples, time, s, ntest=ntest), batch_size=batch_size, shuffle=False, num_workers=num_workers)
@@ -311,7 +312,7 @@ class StrakaFNO:
         #----------------------------------------------------------------------  
 
         #Change number of workers accoirding to your preference
-        num_workers = 0
+        num_workers = 8
         
         self.train_loader = DataLoader(StrakaDataset(dataloc, "training", self.N_Fourier_F, training_samples, time=time, s=s, cno=False), 
                                 batch_size=batch_size, shuffle=True, num_workers=num_workers)

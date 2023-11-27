@@ -15,12 +15,10 @@ with open("training_properties.json", "r") as f:
 
 # Loading FNO Model and Data
 device = "cuda" if torch.cuda.is_available() else "cpu"
-#dataloc = "/cluster/work/math/jabohl/Straka_ensemble_vd/data/"
-dataloc = "/Users/jan/sempaper/straka_data/"
-problem = StrakaFNO(fno_config, device, 2, 2,time=600, s=256,dataloc=dataloc)
+dataloc = "/cluster/work/math/jabohl/StrakaData/data/"
+problem = StrakaFNO(fno_config, device, 2, 2,time=300, s=128, dataloc=dataloc)
 
-#saved_model = torch.load("/cluster/work/math/jabohl/FNO_Straka/model.pkl")
-saved_model = torch.load("/Users/jan/sempaper/ConvolutionalNeuralOperator/TrainedModels/FNO_straka/model.pkl")
+saved_model = torch.load("/cluster/work/math/jabohl/runs/FNO_Straka300/model.pkl")
 
 xs, ys = next(iter(problem.test_loader))
 
@@ -30,11 +28,9 @@ predict = saved_model(xs.to(device))
 predict_fno = predict.cpu().detach().numpy()
 
 # Loading CNO Model and Data
-#dataloc = "/cluster/work/math/jabohl/Straka_ensemble_vd/data/"
-dataloc = "/Users/jan/sempaper/straka_data/"
-problem = Straka(cno_config, device, 2, 2, time=600,s=256,dataloc=dataloc)
-#saved_model = torch.load("/cluster/work/math/jabohl/CNO_Straka/model.pkl")
-saved_model = torch.load("/Users/jan/sempaper/ConvolutionalNeuralOperator/TrainedModels/CNO_straka/model.pkl")
+dataloc = "/cluster/work/math/jabohl/StrakaData/data/"
+problem = Straka(cno_config, device, 2, 2, time=300,s=128, dataloc=dataloc)
+saved_model = torch.load("/cluster/work/math/jabohl/runs/CNO_Straka300/model.pkl")
 
 xs, ys = next(iter(problem.test_loader))
 
