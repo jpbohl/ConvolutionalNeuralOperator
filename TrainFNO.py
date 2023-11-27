@@ -171,7 +171,7 @@ for epoch in range(epochs):
             train_mse = train_mse * step / (step + 1) + loss_f.item() / (step + 1)
             tepoch.set_postfix({'Batch': step + 1, 'Train loss (in progress)': train_mse})
                         
-        wandb.log({"Train Loss" : train_mse})
+        wandb.log(({"Train Loss" : train_mse}), step=epoch)
 
         with torch.no_grad():
             model.eval()
@@ -187,23 +187,13 @@ for epoch in range(epochs):
                 test_relative_l2 += loss_f.item()
             test_relative_l2 /= len(test_loader)
             
-            for step, (input_batch, output_batch) in enumerate(train_loader):
-                    input_batch = input_batch.to(device)
-                    output_batch = output_batch.to(device)
-                    output_pred_batch = model(input_batch)
-                    
-                    loss_f = torch.mean(abs(output_pred_batch - output_batch)) / torch.mean(abs(output_batch)) * 100
-                    train_relative_l2 += loss_f.item()
-            train_relative_l2 /= len(train_loader)
-            
-            wandb.log({"Relative L2 Train Error" : train_relative_l2})
-            wandb.log({"Relative L2 Test Error" : test_relative_l2})
+            wandb.log(({"Relative L2 Test Error" : test_relative_l2}), step=epoch)
 
             if test_relative_l2 < best_model_testing_error:
                 best_model_testing_error = test_relative_l2
                 best_model = copy.deepcopy(model)
                 torch.save(best_model, folder + "/model.pkl")
-                wandb.log({"Best Relative Test Error" : best_model_testing_error})
+                wandb.log(({"Best Relative Test Error" : best_model_testing_error}), step=epoch)
                 counter = 0
                 
             else:
