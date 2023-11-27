@@ -67,7 +67,7 @@ if len(sys.argv) == 1:
 else:
     
     # Do we use a script to run the code (for cluster):
-    folder = sys.argv[1] + f"CNOStraka{sys.argv[5]}"
+    folder = sys.argv[1] + f"CNOStraka{sys.argv[5]}Test"
     
     # Reading hyperparameters
     with open(sys.argv[2], "r") as f:
@@ -103,7 +103,9 @@ df = pd.DataFrame.from_dict([model_architecture_]).T
 df.to_csv(folder + '/net_architecture.txt', header=False, index=True, mode='w')
 
 if which_example == "straka":
+    print("Loading example")
     example = Straka(model_architecture_, device, batch_size, training_samples, time=time, s=s, dataloc=dataloc)
+    print("Loaded example")
 else:
     raise ValueError()
     
@@ -133,7 +135,7 @@ if str(device) == 'cpu':
     print("------------------------------------------")
     print(" ")
 
-
+print("Training")
 for epoch in range(epochs):
     with tqdm(unit="batch", disable=False) as tepoch:
         
@@ -147,10 +149,6 @@ for epoch in range(epochs):
             output_batch = output_batch.to(device)
 
             output_pred_batch = model(input_batch)
-
-            if which_example == "airfoil": #Mask the airfoil shape
-                output_pred_batch[input_batch==1] = 1
-                output_batch[input_batch==1] = 1
 
             loss_f = loss(output_pred_batch, output_batch) / loss(torch.zeros_like(output_batch).to(device), output_batch)
 
@@ -171,10 +169,6 @@ for epoch in range(epochs):
                 input_batch = input_batch.to(device)
                 output_batch = output_batch.to(device)
                 output_pred_batch = model(input_batch)
-                
-                if which_example == "airfoil": #Mask the airfoil shape
-                    output_pred_batch[input_batch==1] = 1
-                    output_batch[input_batch==1] = 1
                 
                 loss_f = torch.mean(abs(output_pred_batch - output_batch)) / torch.mean(abs(output_batch)) * 100
                 test_relative_l2 += loss_f.item()

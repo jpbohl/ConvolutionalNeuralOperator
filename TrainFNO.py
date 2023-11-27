@@ -64,6 +64,7 @@ else:
     which_example = sys.argv[4]
     time = int(sys.argv[5])
     dataloc = sys.argv[6]
+    print("Loaded arguments")
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 writer = SummaryWriter(log_dir=folder)
@@ -80,7 +81,10 @@ s = fno_architecture_["in_size"]
 
 
 if which_example == "straka":
+    print("Loading example")
     example = StrakaFNO(fno_architecture_, device, batch_size, training_samples,time=time, s=s, dataloc=dataloc)
+    print("Loaded example")
+
 else:
     raise ValueError("Problem not implemented")
 
@@ -109,6 +113,7 @@ elif p == 2:
 best_model_testing_error = 300
 patience = int(0.1 * epochs)
 counter = 0
+print("Training")
 for epoch in range(epochs):
     with tqdm(unit="batch", disable=False) as tepoch:
         model.train()
@@ -120,10 +125,6 @@ for epoch in range(epochs):
             input_batch = input_batch.to(device)
             output_batch = output_batch.to(device)
             output_pred_batch = model(input_batch)
-
-            if which_example == "airfoil":
-                output_pred_batch[input_batch==1] = 1
-                output_batch[input_batch==1] = 1
 
             loss_f = loss(output_pred_batch, output_batch) / loss(torch.zeros_like(output_batch).to(device), output_batch)
 
@@ -144,10 +145,6 @@ for epoch in range(epochs):
                 output_batch = output_batch.to(device)
                 output_pred_batch = model(input_batch)
                 
-                if which_example == "airfoil":
-                    output_pred_batch[input_batch==1] = 1
-                    output_batch[input_batch==1] = 1
-                
                 loss_f = torch.mean(abs(output_pred_batch - output_batch)) / torch.mean(abs(output_batch)) * 100
                 test_relative_l2 += loss_f.item()
             test_relative_l2 /= len(test_loader)
@@ -156,10 +153,6 @@ for epoch in range(epochs):
                     input_batch = input_batch.to(device)
                     output_batch = output_batch.to(device)
                     output_pred_batch = model(input_batch)
-                    
-                    if which_example == "airfoil":
-                        output_pred_batch[input_batch==1] = 1
-                        output_batch[input_batch==1] = 1
                     
                     loss_f = torch.mean(abs(output_pred_batch - output_batch)) / torch.mean(abs(output_batch)) * 100
                     train_relative_l2 += loss_f.item()
@@ -180,7 +173,7 @@ for epoch in range(epochs):
         tepoch.set_postfix({'Train loss': train_mse, "Relative Train": train_relative_l2, "Relative Val loss": test_relative_l2})
         tepoch.close()
         
-        #print(epoch, "val_loss/val_loss", test_relative_l2, epoch)
+        print(epoch, "val_loss/val_loss", test_relative_l2, epoch)
         
         with open(folder + '/errors.txt', 'w') as file:
             file.write("Training Error: " + str(train_mse) + "\n")

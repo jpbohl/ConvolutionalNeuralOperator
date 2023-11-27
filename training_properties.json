@@ -1,6 +1,6 @@
 {
-    "batch_size": 32,
-    "epochs": 2,
+    "batch_size": 16,
+    "epochs": 600,
     "exp": 1,
     "learning_rate": 0.0005,
     "scheduler_gamma": 0.98,
