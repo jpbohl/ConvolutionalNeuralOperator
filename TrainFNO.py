@@ -5,8 +5,10 @@ import sys
 
 import pandas as pd
 import torch
-from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
+
+import wandb
+from PIL import Image
 
 from Problems.Straka import StrakaFNO
 from datetime import date
@@ -18,7 +20,7 @@ if len(sys.argv) == 1:
         "weight_decay": 1e-8,
         "scheduler_step": 0.97,
         "scheduler_gamma": 10,
-        "epochs": 5,
+        "epochs": 2,
         "batch_size": 16,
         "exp": 1,
         "training_samples": 3,
@@ -47,12 +49,12 @@ if len(sys.argv) == 1:
     time = 600
 
     # Save the models here:
-    folder = "TrainedModels/"+"FNO_"+which_example
-    dataloc = "/Users/jan/sempaper/straka_data/"
+    folder = "TrainedModels/"
+    dataloc = "/Users/jan/sempaper/StrakaData/"
 
 else:
     # Do we use a script to run the code (for cluster):
-    folder = sys.argv[1] + f"FNOStraka{sys.argv[5]}"
+    folder = sys.argv[1]
     
     # Reading hyperparameters
     with open(sys.argv[2], "r") as f:
@@ -66,7 +68,14 @@ else:
     dataloc = sys.argv[6]
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-writer = SummaryWriter(log_dir=folder)
+
+# Initializing wandb
+config = {"time" : time, **training_properties, **fno_architecture_}
+wandb.login()
+run = wandb.init(
+    project = "StrakaFNO", 
+    config=config)
+folder += run.name # Change save directory name to wandb run name
 
 learning_rate = training_properties["learning_rate"]
 epochs = training_properties["epochs"]
@@ -101,6 +110,7 @@ test_loader = example.val_loader
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=scheduler_step, gamma=scheduler_gamma)
 
+# Initializing training parameters
 freq_print = 1
 if p == 1:
     loss = torch.nn.SmoothL1Loss()
@@ -109,6 +119,35 @@ elif p == 2:
 best_model_testing_error = 300
 patience = int(0.1 * epochs)
 counter = 0
+
+def log_plots(model, val_loader):
+    """
+    Plotting function called when training loop exits.
+    Plots the predictions on a batch of the test set and
+    uploads them to wandb.
+    """
+    # Get single test batch
+    input_batch, output_batch = next(iter(val_loader))
+    input_batch.to(device)
+    output_batch = output_batch.to(device)
+
+    with torch.no_grad():
+        pred = model(input_batch)
+        diffs = output_batch - pred
+
+    # Logging initial conidition channel of inputs as well as outputs and
+    # differences between predictions and labels
+    input_imgs = [input_batch[i, :, :, 2].numpy().T for i in range(pred.shape[0])]
+    pred_imgs = [pred[i, :, :, 0].numpy().T for i in range(pred.shape[0])]
+    diff_imgs = [diffs[i, :, :, 0].numpy().T for i in range(pred.shape[0])]
+
+    wandb.log({"Initial conditions" : [wandb.Image(img) for img in input_imgs]})
+    wandb.log({"Predictions" : [wandb.Image(img) for img in pred_imgs]})
+    wandb.log({"Differences" : [wandb.Image(img) for img in diff_imgs]})
+
+    print("Exiting code")
+
+# Training loop
 for epoch in range(epochs):
     with tqdm(unit="batch", disable=False) as tepoch:
         model.train()
@@ -121,10 +160,6 @@ for epoch in range(epochs):
             output_batch = output_batch.to(device)
             output_pred_batch = model(input_batch)
 
-            if which_example == "airfoil":
-                output_pred_batch[input_batch==1] = 1
-                output_batch[input_batch==1] = 1
-
             loss_f = loss(output_pred_batch, output_batch) / loss(torch.zeros_like(output_batch).to(device), output_batch)
 
             loss_f.backward()
@@ -132,7 +167,7 @@ for epoch in range(epochs):
             train_mse = train_mse * step / (step + 1) + loss_f.item() / (step + 1)
             tepoch.set_postfix({'Batch': step + 1, 'Train loss (in progress)': train_mse})
                         
-        writer.add_scalar("train_loss/train_loss", train_mse, epoch)
+        wandb.log({"Train Loss" : train_mse})
 
         with torch.no_grad():
             model.eval()
@@ -144,10 +179,6 @@ for epoch in range(epochs):
                 output_batch = output_batch.to(device)
                 output_pred_batch = model(input_batch)
                 
-                if which_example == "airfoil":
-                    output_pred_batch[input_batch==1] = 1
-                    output_batch[input_batch==1] = 1
-                
                 loss_f = torch.mean(abs(output_pred_batch - output_batch)) / torch.mean(abs(output_batch)) * 100
                 test_relative_l2 += loss_f.item()
             test_relative_l2 /= len(test_loader)
@@ -157,23 +188,20 @@ for epoch in range(epochs):
                     output_batch = output_batch.to(device)
                     output_pred_batch = model(input_batch)
                     
-                    if which_example == "airfoil":
-                        output_pred_batch[input_batch==1] = 1
-                        output_batch[input_batch==1] = 1
-                    
                     loss_f = torch.mean(abs(output_pred_batch - output_batch)) / torch.mean(abs(output_batch)) * 100
                     train_relative_l2 += loss_f.item()
             train_relative_l2 /= len(train_loader)
             
-            writer.add_scalar("train_loss/train_loss_rel", train_relative_l2, epoch)
-            writer.add_scalar("val_loss/val_loss", test_relative_l2, epoch)
+            wandb.log({"Relative L2 Train Error" : train_relative_l2})
+            wandb.log({"Relative L2 Test Error" : test_relative_l2})
 
             if test_relative_l2 < best_model_testing_error:
                 best_model_testing_error = test_relative_l2
                 best_model = copy.deepcopy(model)
                 torch.save(best_model, folder + "/model.pkl")
-                writer.add_scalar("val_loss/Best Relative Testing Error", best_model_testing_error, epoch)
+                wandb.log({"Best Relative Test Error" : best_model_testing_error})
                 counter = 0
+                
             else:
                 counter +=1
 
@@ -189,6 +217,8 @@ for epoch in range(epochs):
             file.write("Params: " + str(n_params) + "\n")
         scheduler.step()
     
-    if counter>patience:
+    if counter > patience:
         print("Early Stopping")
         break
+        
+log_plots(best_model, test_loader)

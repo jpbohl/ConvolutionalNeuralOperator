@@ -1,4 +1,5 @@
 import random
+import os
 import csv
 from statistics import mean, stdev
 
@@ -81,7 +82,7 @@ def default_param(network_properties):
 #Poisson data:
 
 class StrakaDataset(Dataset):
-    def __init__(self, dataloc, which="training", nf=0, training_samples = 400, time=300, s=128, ntest=56, in_dist = True, cno=True):
+    def __init__(self, dataloc, which="training", nf=0, training_samples = 400, time=300, s=128, ntest=1, in_dist = True, cno=True):
         
         #Overview file:
         with open(dataloc + "overview.csv") as f:
@@ -226,7 +227,7 @@ class StrakaDataset(Dataset):
 
 
 class Straka:
-    def __init__(self, network_properties, device, batch_size, training_samples = 400,time=300, s = 128, ntest=56, in_dist = True, dataloc="data/"):
+    def __init__(self, network_properties, device, batch_size, training_samples = 400,time=300, s = 128, ntest=1, in_dist = True, dataloc="data/"):
         
         #Must have parameters: ------------------------------------------------        
 
@@ -287,7 +288,7 @@ class Straka:
                                 ).to(device)
         
         #Change number of workers accoirding to your preference
-        num_workers = 16
+        num_workers = 0
 
         self.train_loader = DataLoader(StrakaDataset(dataloc, "training", self.N_Fourier_F, training_samples, time, s, ntest=ntest), batch_size=batch_size, shuffle=True, num_workers=num_workers)
         self.val_loader = DataLoader(StrakaDataset(dataloc, "validation", self.N_Fourier_F, training_samples, time, s, ntest=ntest), batch_size=batch_size, shuffle=False, num_workers=num_workers)
@@ -310,7 +311,7 @@ class StrakaFNO:
         #----------------------------------------------------------------------  
 
         #Change number of workers accoirding to your preference
-        num_workers = 16
+        num_workers = 0
         
         self.train_loader = DataLoader(StrakaDataset(dataloc, "training", self.N_Fourier_F, training_samples, time=time, s=s, cno=False), 
                                 batch_size=batch_size, shuffle=True, num_workers=num_workers)

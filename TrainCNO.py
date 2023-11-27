@@ -2,11 +2,13 @@ import copy
 import json
 import os
 import sys
+import atexit
 
 import pandas as pd
 import torch
-from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
+
+import wandb
 
 from Problems.Straka import Straka
 
@@ -59,15 +61,15 @@ if len(sys.argv) == 1:
     which_example = "straka"
     time = 300
 
-    dataloc = "/Users/jan/sempaper/straka_data/"
+    dataloc = "/Users/jan/sempaper/StrakaData/"
 
     # Save the models here:
-    folder = "TrainedModels/"+"CNO_"+which_example+"_1"
+    folder = "TrainedModels/"
         
 else:
     
     # Do we use a script to run the code (for cluster):
-    folder = sys.argv[1] + f"CNOStraka{sys.argv[5]}"
+    folder = sys.argv[1] 
     
     # Reading hyperparameters
     with open(sys.argv[2], "r") as f:
@@ -81,7 +83,12 @@ else:
     dataloc = sys.argv[6]
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-writer = SummaryWriter(log_dir=folder) #usage of TensorBoard
+
+config = {"time" : time, **training_properties, **model_architecture_}
+wandb.login()
+run = wandb.init(
+    project = "StrakaCNO", 
+    config=config)
 
 learning_rate = training_properties["learning_rate"]
 epochs = training_properties["epochs"]
@@ -133,7 +140,35 @@ if str(device) == 'cpu':
     print("------------------------------------------")
     print(" ")
 
+def log_plots(model, val_loader):
+    """
+    Plotting function called when training loop exits.
+    Plots the predictions on a batch of the test set and
+    uploads them to wandb.
+    """
+    # Get single test batch
+    input_batch, output_batch = next(iter(val_loader))
+    input_batch.to(device)
+    output_batch = output_batch.to(device)
 
+    with torch.no_grad():
+        pred = model(input_batch)
+        diffs = output_batch - pred
+
+    # Logging initial conidition channel of inputs as well as outputs and
+    # differences between predictions and labels
+    input_imgs = [input_batch[i, 2, :, :].numpy().T for i in range(pred.shape[0])]
+    pred_imgs = [pred[i, 0, :, :].numpy().T for i in range(pred.shape[0])]
+    diff_imgs = [diffs[i, 0, :, :].numpy().T for i in range(pred.shape[0])]
+
+    wandb.log({"Initial conditions" : [wandb.Image(img) for img in input_imgs]})
+    wandb.log({"Predictions" : [wandb.Image(img) for img in pred_imgs]})
+    wandb.log({"Differences" : [wandb.Image(img) for img in diff_imgs]})
+
+    print("Exiting code")
+
+
+# Training loop
 for epoch in range(epochs):
     with tqdm(unit="batch", disable=False) as tepoch:
         
@@ -148,10 +183,6 @@ for epoch in range(epochs):
 
             output_pred_batch = model(input_batch)
 
-            if which_example == "airfoil": #Mask the airfoil shape
-                output_pred_batch[input_batch==1] = 1
-                output_batch[input_batch==1] = 1
-
             loss_f = loss(output_pred_batch, output_batch) / loss(torch.zeros_like(output_batch).to(device), output_batch)
 
             loss_f.backward()
@@ -159,7 +190,7 @@ for epoch in range(epochs):
             train_mse = train_mse * step / (step + 1) + loss_f.item() / (step + 1)
             tepoch.set_postfix({'Batch': step + 1, 'Train loss (in progress)': train_mse})
 
-        writer.add_scalar("train_loss/train_loss", train_mse, epoch)
+        wandb.log({"Train Loss" : train_mse})
         
         with torch.no_grad():
             model.eval()
@@ -172,10 +203,6 @@ for epoch in range(epochs):
                 output_batch = output_batch.to(device)
                 output_pred_batch = model(input_batch)
                 
-                if which_example == "airfoil": #Mask the airfoil shape
-                    output_pred_batch[input_batch==1] = 1
-                    output_batch[input_batch==1] = 1
-                
                 loss_f = torch.mean(abs(output_pred_batch - output_batch)) / torch.mean(abs(output_batch)) * 100
                 test_relative_l2 += loss_f.item()
             test_relative_l2 /= len(val_loader)
@@ -185,23 +212,18 @@ for epoch in range(epochs):
                 output_batch = output_batch.to(device)
                 output_pred_batch = model(input_batch)
                     
-                if which_example == "airfoil": #Mask the airfoil shape
-                    output_pred_batch[input_batch==1] = 1
-                    output_batch[input_batch==1] = 1
-
-                    loss_f = torch.mean(abs(output_pred_batch - output_batch)) / torch.mean(abs(output_batch)) * 100
-                    train_relative_l2 += loss_f.item()
             train_relative_l2 /= len(train_loader)
             
-            writer.add_scalar("train_loss/train_loss_rel", train_relative_l2, epoch)
-            writer.add_scalar("val_loss/val_loss", test_relative_l2, epoch)
+            wandb.log({"Relative L2 Train Error" : train_relative_l2})
+            wandb.log({"Relative L2 Test Error" : test_relative_l2})
 
             if test_relative_l2 < best_model_testing_error:
                 best_model_testing_error = test_relative_l2
                 best_model = copy.deepcopy(model)
                 torch.save(best_model, folder + "/model.pkl")
-                writer.add_scalar("val_loss/Best Relative Testing Error", best_model_testing_error, epoch)
+                wandb.log({"Best Relative Test Error" : best_model_testing_error})
                 counter = 0
+
             else:
                 counter+=1
 
@@ -218,3 +240,6 @@ for epoch in range(epochs):
     if counter>patience:
         print("Early Stopping")
         break
+
+log_plots(best_model, val_loader)
+    
