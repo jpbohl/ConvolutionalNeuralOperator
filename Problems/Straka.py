@@ -131,6 +131,20 @@ class StrakaDataset(Dataset):
         else:
             raise NotImplementedError("Only Timesteps 300 and 600 implemented")
 
+        # Write files to tmp
+        try:
+            TMP = os.environ["TMPDIR"]
+        except KeyError:
+            TMP = "."
+
+        # Save data to avoid interpolating every time a sample is loaded
+        self.t0.to_netcdf(TMP + "t0.nc", mode="w")
+        self.t1.to_netcdf(TMP + "t1.nc", mode="w")
+
+        # Reload data
+        self.t0 = xr.open_dataarray(TMP + "t0.nc", engine="netcdf4")
+        self.t1 = xr.open_dataarray(TMP + "t1.nc", engine="netcdf4")
+
         # Computing stats for standardization
         self.mean_ic = self.t0.mean().compute()
         self.std_ic = self.t0.std().compute()
@@ -185,14 +199,14 @@ class StrakaDataset(Dataset):
         index = index + self.start
         
         # Assembling inputs
-        ic = torch.tensor(self.t0.isel(index=index).data.compute(), dtype=torch.float32)
+        ic = torch.tensor(self.t0.isel(index=index).compute().data, dtype=torch.float32)
         visc = self.viscosity[index] * torch.ones_like(ic)
         dens = self.density[index] * torch.ones_like(ic)
 
         inputs = torch.cat([visc, dens, ic], dim=-1)
 
         # Getting labels
-        labels = torch.tensor(self.t1.isel(index=index).data.compute(), dtype=torch.float32)
+        labels = torch.tensor(self.t1.isel(index=index).compute().data, dtype=torch.float32)
 
         # Standardize data
         inputs = (inputs - self.mean_data) / self.std_data
@@ -223,9 +237,6 @@ class StrakaDataset(Dataset):
         y_grid = y_grid.unsqueeze(-1)
         grid = torch.cat((x_grid, y_grid), -1)
         return grid
-
-    
-
 
 class Straka:
     def __init__(self, network_properties, device, batch_size, training_samples = 400,time=300, s = 128, ntest=1, in_dist = True, dataloc="data/"):

@@ -32,3 +32,19 @@ torch_utils/ops/__pycache__/upfirdn2d.cpython-39.pyc
 
 torch_utils/.DS_Store
 .gitignore
+torch_utils/__pycache__/custom_ops.cpython-39.pyc
+torch_utils/__pycache__/misc.cpython-39.pyc
+torch_utils/__pycache__/persistence.cpython-39.pyc
+torch_utils/ops/__pycache__/__init__.cpython-39.pyc
+torch_utils/ops/__pycache__/bias_act.cpython-39.pyc
+torch_utils/ops/__pycache__/conv2d_gradfix.cpython-39.pyc
+torch_utils/ops/__pycache__/filtered_lrelu.cpython-39.pyc
+torch_utils/ops/__pycache__/upfirdn2d.cpython-39.pyc
+torch_utils/__pycache__/custom_ops.cpython-39.pyc
+torch_utils/__pycache__/misc.cpython-39.pyc
+torch_utils/__pycache__/persistence.cpython-39.pyc
+torch_utils/ops/__pycache__/__init__.cpython-39.pyc
+torch_utils/ops/__pycache__/bias_act.cpython-39.pyc
+torch_utils/ops/__pycache__/conv2d_gradfix.cpython-39.pyc
+torch_utils/ops/__pycache__/filtered_lrelu.cpython-39.pyc
+torch_utils/ops/__pycache__/upfirdn2d.cpython-39.pyc
