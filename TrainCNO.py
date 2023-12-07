@@ -9,6 +9,7 @@ import torch
 from tqdm import tqdm
 
 import wandb
+import matplotlib.pyplot as plt
 
 from Problems.Straka import Straka
 
@@ -160,15 +161,44 @@ def log_plots(model, val_loader):
 
     # Logging initial conidition channel of inputs as well as outputs and
     # differences between predictions and labels
-    input_imgs = [input_batch[i, 2, :, :].cpu().numpy().T for i in range(pred.shape[0])]
-    pred_imgs = [pred[i, 0, :, :].cpu().numpy().T for i in range(pred.shape[0])]
-    diff_imgs = [diffs[i, 0, :, :].cpu().numpy().T for i in range(pred.shape[0])]
+    input_img = input_batch[0, 2, :, :].detach().cpu().numpy().T
+    pred_img = pred[0, 0, :, :].cpu().numpy().T
+    label = output_batch[0, 0, :, :].detach().cpu().numpy().T
+    diff_img = diffs[0, 0, :, :].cpu().numpy().T
 
-    wandb.log({"Initial conditions" : [wandb.Image(img) for img in input_imgs]})
-    wandb.log({"Predictions" : [wandb.Image(img) for img in pred_imgs]})
-    wandb.log({"Differences" : [wandb.Image(img) for img in diff_imgs]})
+    # Plotting intial condition
+    figi, ax = plt.subplots()
 
-    print("Exiting code")
+    ic = ax.pcolormesh(input_img, cmap="Blues_r")
+    ax.set_title("Initial condition")
+    figi.colorbar(ic, ax=ax)
+
+
+    # Plotting predictions
+    figp, axes = plt.subplots(1, 2, sharey=True)
+
+    labels = axes[0].pcolormesh(label, cmap="Blues_r")
+    axes[0].set_title("Labels")
+    figp.colorbar(labels, ax=axes[0])
+
+    fno = axes[1].pcolormesh(pred_img, cmap="Blues_r")
+    axes[1].set_title("CNO")
+    figp.colorbar(fno, ax=axes[1])
+
+    # Plotting errors
+    fige, axes = plt.subplots(1, 2, sharey=True)
+
+    labels = axes[0].pcolormesh(label, cmap="Blues_r")
+    axes[0].set_title("Labels")
+    fige.colorbar(labels, ax=axes[0])
+
+    error_fno = axes[1].pcolormesh(diff_img, cmap="Blues_r")
+    axes[1].set_title("CNO Error")
+    fige.colorbar(error_fno, ax=axes[1])
+
+    wandb.log({"Initial conditions" : wandb.Image(figi)})
+    wandb.log({"Predictions" : wandb.Image(figp)})
+    wandb.log({"Differences" : wandb.Image(fige)})
 
 
 # Training loop

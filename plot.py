@@ -74,7 +74,7 @@ fig.colorbar(cno, ax=axes[2])
 
 fig.savefig("Predictions.png")
 
-# Plotting predictions
+# Plotting errors
 fig, axes = plt.subplots(1, 3, sharey=True)
 
 labels = axes[0].pcolormesh(ys[0, 0, :, :].T, cmap="Blues_r")
