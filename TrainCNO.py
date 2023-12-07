@@ -89,6 +89,7 @@ wandb.login()
 run = wandb.init(
     project = "StrakaCNO", 
     config=config)
+folder += run.name
 
 learning_rate = training_properties["learning_rate"]
 epochs = training_properties["epochs"]
@@ -159,9 +160,9 @@ def log_plots(model, val_loader):
 
     # Logging initial conidition channel of inputs as well as outputs and
     # differences between predictions and labels
-    input_imgs = [input_batch[i, 2, :, :].numpy().T for i in range(pred.shape[0])]
-    pred_imgs = [pred[i, 0, :, :].numpy().T for i in range(pred.shape[0])]
-    diff_imgs = [diffs[i, 0, :, :].numpy().T for i in range(pred.shape[0])]
+    input_imgs = [input_batch[i, 2, :, :].cpu().numpy().T for i in range(pred.shape[0])]
+    pred_imgs = [pred[i, 0, :, :].cpu().numpy().T for i in range(pred.shape[0])]
+    diff_imgs = [diffs[i, 0, :, :].cpu().numpy().T for i in range(pred.shape[0])]
 
     wandb.log({"Initial conditions" : [wandb.Image(img) for img in input_imgs]})
     wandb.log({"Predictions" : [wandb.Image(img) for img in pred_imgs]})

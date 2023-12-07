@@ -5,6 +5,7 @@ desktop.ini
 *.pyc
 /__pycache__/
 
+
 *.out
 *.ipynb
 .ipynb_checkpoints/
@@ -31,7 +32,7 @@ torch_utils/ops/__pycache__/upfirdn2d.cpython-39.pyc
 /wandb
 
 torch_utils/.DS_Store
-.gitignore
+/torch_utils/__pycache__
 torch_utils/__pycache__/custom_ops.cpython-39.pyc
 torch_utils/__pycache__/misc.cpython-39.pyc
 torch_utils/__pycache__/persistence.cpython-39.pyc
