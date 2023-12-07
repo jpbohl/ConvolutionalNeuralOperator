@@ -122,7 +122,7 @@ class StrakaDataset(Dataset):
             self.t0 = self.t0.isel(x=np.arange(511, 511+128))
             self.t1 = self.t1.isel(x=np.arange(511, 511+128))
 
-        elif time == 600:
+        elif time in (600, 900):
             new_zs = self.get_new_zs()
 
             self.t0 = self.t0.isel(x=np.arange(511, 511+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
@@ -135,7 +135,7 @@ class StrakaDataset(Dataset):
         try:
             TMP = os.environ["TMPDIR"]
         except KeyError:
-            TMP = "."
+            TMP = ""
 
         # Save data to avoid interpolating every time a sample is loaded
         self.t0.to_netcdf(TMP + "t0.nc", mode="w")

@@ -150,7 +150,7 @@ def log_plots(model, val_loader):
     """
     # Get single test batch
     input_batch, output_batch = next(iter(val_loader))
-    input_batch.to(device)
+    input_batch = input_batch.to(device)
     output_batch = output_batch.to(device)
 
     with torch.no_grad():

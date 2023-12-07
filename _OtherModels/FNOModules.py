@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from _OtherModels.SelfAttention import SelfAttention
 from debug_tools import format_tensor_size
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
@@ -166,7 +167,7 @@ class SpectralConv2d(nn.Module):
 #------------------------------------------------------------------------------
 
 class FNO2d(nn.Module):
-    def __init__(self, fno_architecture, in_channels = 1, out_channels = 1, device=None):
+    def __init__(self, fno_architecture, in_channels = 1, out_channels = 1, device=None, self_attention=False):
         super(FNO2d, self).__init__()
 
         """
@@ -208,7 +209,8 @@ class FNO2d(nn.Module):
         self.conv_list = nn.ModuleList([nn.Conv2d(self.width, self.width, 1) for _ in range(self.n_layers)])
         self.spectral_list = nn.ModuleList([SpectralConv2d(self.width, self.width, self.modes1, self.modes2) for _ in range(self.n_layers)])
 
-        
+        self.self_attention = SelfAttention(self.width)
+
         self.q = nn.Sequential(nn.Linear(self.width, 128),
                                 self.act,
                                 nn.Linear(128, out_channels))
@@ -245,9 +247,12 @@ class FNO2d(nn.Module):
 
             x1 = s(x)
             x2 = c(x)
-            x = x1 + x2
             if k != self.n_layers - 1:
+                x = x1 + x2
                 x = self.act(x)
+            else:
+                x1 = self.self_attention(x1)
+                x = x1 + x2
         
         del x1
         del x2
