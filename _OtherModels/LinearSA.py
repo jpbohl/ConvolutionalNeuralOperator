@@ -1,8 +1,11 @@
+"""
+Code from https://github.com/lucidrains/linear-attention-transformer/blob/master/linear_attention_transformer/images.py
+"""
 import torch
 from torch import nn
 
 class LinearAttention(nn.Module):
-    def __init__(self, chan, chan_out = None, kernel_size = 1, padding = 0, stride = 1, key_dim = 64, value_dim = 64, heads = 8, norm_queries = True):
+    def __init__(self, chan, chan_out = None, kernel_size = 1, padding = 0, stride = 1, key_dim = 32, value_dim = 64, heads = 8, norm_queries = True):
         super().__init__()
         self.chan = chan
         chan_out = chan if chan_out is None else chan_out

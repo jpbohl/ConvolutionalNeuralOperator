@@ -83,7 +83,7 @@ def default_param(network_properties):
 #Poisson data:
 
 class StrakaDataset(Dataset):
-    def __init__(self, dataloc, which="training", nf=0, training_samples = 400, time=300, s=128, ntest=1, in_dist = True, cno=True, cluster=True):
+    def __init__(self, dataloc, which="training", nf=0, training_samples = 400, time=300, s=128, ntest=None, in_dist = True, cno=True, cluster=True):
         
         #Overview file:
         with open(dataloc + "overview.csv") as f:
@@ -101,6 +101,9 @@ class StrakaDataset(Dataset):
                 self.viscosity.append(float(row[0]))
                 self.density.append(float(row[1]))
                 self.files.append(row[2])
+
+        if not ntest:
+            ntest = (512 - training_samples) // 2
 
         total_samples = training_samples + 2 * ntest
         self.files_t0 = [dataloc + f + "/fields/0.nc" for f in self.files[:total_samples]]
