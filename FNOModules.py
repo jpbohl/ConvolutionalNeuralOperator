@@ -10,6 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from debug_tools import format_tensor_size
+from _OtherModels.LinearSA import LinearAttention
 #from training.networks_stylegan3 import SynthesisLayer
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
@@ -166,7 +167,7 @@ class SpectralConv2d(nn.Module):
 
 
 class FNO2d(nn.Module):
-    def __init__(self, fno_architecture, device=None, padding_frac=1 / 4, in_channels = 1, grid = True):
+    def __init__(self, fno_architecture, device=None, padding_frac=1 / 4, in_channels = 1, grid = True, self_attention=True):
         super(FNO2d, self).__init__()
 
         """
@@ -206,12 +207,14 @@ class FNO2d(nn.Module):
                                    self.act,
                                    nn.Linear(128, self.width))
         
-        
-        
         self.conv_list = nn.ModuleList([nn.Conv2d(self.width, self.width, 1) for _ in range(self.n_layers)])
         self.spectral_list = nn.ModuleList([SpectralConv2d(self.width, self.width, self.modes1, self.modes2) for _ in range(self.n_layers)])
-
         
+        if self_attention:
+            self.self_attention = LinearAttention(self.width, )
+        else:
+            self.self_attention = lambda x : x
+
         self.q = nn.Sequential(nn.Linear(self.width, 128),
                                self.act,
                                nn.Linear(128, 1))
@@ -253,9 +256,12 @@ class FNO2d(nn.Module):
 
             x1 = s(x)
             x2 = c(x)
-            x = x1 + x2
             if k != self.n_layers - 1:
+                x = x1 + x2
                 x = self.act(x)
+            else:
+                x1 = self.self_attention(x1)
+                x = x1 + x2
 
         x = x[..., :-x1_padding, :-x2_padding]
         x = x.permute(0, 2, 3, 1)

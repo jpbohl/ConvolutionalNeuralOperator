@@ -14,7 +14,9 @@ import matplotlib.pyplot as plt
 from Problems.Straka import Straka
 
 if len(sys.argv) == 1:
-    
+
+    cluster = False
+
     training_properties = {
         "learning_rate": 0.001, 
         "weight_decay": 1e-6,
@@ -69,6 +71,8 @@ if len(sys.argv) == 1:
         
 else:
     
+    cluster = True
+
     # Do we use a script to run the code (for cluster):
     folder = sys.argv[1] 
     
@@ -113,7 +117,7 @@ df.to_csv(folder + '/net_architecture.txt', header=False, index=True, mode='w')
 
 if which_example == "straka":
     print("Loading example")
-    example = Straka(model_architecture_, device, batch_size, training_samples, time=time, s=s, dataloc=dataloc)
+    example = Straka(model_architecture_, device, batch_size, training_samples, time=time, s=s, dataloc=dataloc, cluster=True)
     print("Loaded example")
 else:
     raise ValueError()

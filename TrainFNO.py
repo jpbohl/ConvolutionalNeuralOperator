@@ -15,6 +15,8 @@ from datetime import date
 
 if len(sys.argv) == 1:
 
+    cluster = False
+
     training_properties = {
         "learning_rate": 0.001,
         "weight_decay": 1e-8,
@@ -26,12 +28,12 @@ if len(sys.argv) == 1:
         "training_samples": 3,
     }
     fno_architecture_ = {
-        "width": 32,
+        "width": 16,
         "modes": 16,
         "FourierF" : 0, #Number of Fourier Features in the input channels. Default is 0.
         "n_layers": 2, #Number of Fourier layers
         "retrain": 4, #Random seed
-        "in_size":256
+        "in_size": 128
     }
     
     #   "which_example" can be 
@@ -54,6 +56,7 @@ if len(sys.argv) == 1:
 
 else:
     # Do we use a script to run the code (for cluster):
+    cluster = True
     folder = sys.argv[1]
     
     # Reading hyperparameters
@@ -91,7 +94,7 @@ s = fno_architecture_["in_size"]
 
 if which_example == "straka":
     print("Loading example")
-    example = StrakaFNO(fno_architecture_, device, batch_size, training_samples,time=time, s=s, dataloc=dataloc)
+    example = StrakaFNO(fno_architecture_, device, batch_size, training_samples,time=time, s=s, dataloc=dataloc, cluster=cluster)
     print("Loaded example")
 
 else:
