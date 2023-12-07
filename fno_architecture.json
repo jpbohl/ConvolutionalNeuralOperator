@@ -1,8 +1,8 @@
 {
     "FourierF": 0,
-    "modes": 16,
-    "n_layers": 2,
+    "modes": 20,
+    "n_layers": 5,
     "retrain": 4,
-    "width": 32,
-    "in_size": 128
+    "width": 64,
+    "in_size": 256
 }
