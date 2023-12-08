@@ -33,7 +33,8 @@ if len(sys.argv) == 1:
         "FourierF" : 0, #Number of Fourier Features in the input channels. Default is 0.
         "n_layers": 2, #Number of Fourier layers
         "retrain": 4, #Random seed
-        "in_size": 128
+        "in_size": 128,
+        "self_attention" : True
     }
     
     #   "which_example" can be 

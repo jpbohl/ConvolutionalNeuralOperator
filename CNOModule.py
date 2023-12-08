@@ -15,6 +15,7 @@ import torch
 #from debug_tools import *
 from training.filtered_networks import LReLu, LReLu_regular #Either "filtered LReLU" or regular LReLu
 from debug_tools import format_tensor_size
+from _OtherModels.LinearSA import LinearAttention
 
 #------------------------------------------------------------------------------
 
@@ -263,7 +264,8 @@ class CNO(nn.Module):
                  expand_input = False,      # Start with original in_size, or expand it (pad zeros in the spectrum)
                  latent_lift_proj_dim = 64, # Intermediate latent dimension in the lifting/projection layer
                  add_inv = True,            # Add invariant block (I) after the intermediate connections?
-                 activation = 'cno_lrelu'   # Activation function can be 'cno_lrelu' or 'lrelu'
+                 activation = 'cno_lrelu',   # Activation function can be 'cno_lrelu' or 'lrelu'
+                 attention = True
                 ):
         
         super(CNO, self).__init__()
@@ -469,6 +471,9 @@ class CNO(nn.Module):
         
         self.res_nets = torch.nn.Sequential(*self.res_nets)    
 
+        # Define self attention layer
+        self.attention = True
+        self.self_attention = LinearAttention(self.decoder_features_out[-1])
 
     def forward(self, x):
                  
@@ -508,7 +513,10 @@ class CNO(nn.Module):
             # Apply (U) block
             x = self.decoder[i](x)
         # Cat & Execute Projetion ---------------------------------------------
-        
+
+        if self.attention:
+            x = self.self_attention(x)
+
         x = torch.cat((x, self.ED_expansion[0](skip[0])),1)
         x = self.project(x)
         

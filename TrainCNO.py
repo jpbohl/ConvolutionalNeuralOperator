@@ -16,6 +16,7 @@ from Problems.Straka import Straka
 if len(sys.argv) == 1:
 
     cluster = False
+    mode = "disabled"
 
     training_properties = {
         "learning_rate": 0.001, 
@@ -41,6 +42,7 @@ if len(sys.argv) == 1:
         "kernel_size": 3,         # Kernel size.
         "FourierF": 0,            # Number of Fourier Features in the input channels. Default is 0.
         "activation": 'cno_lrelu',# cno_lrelu or lrelu
+        "attention" : True,
         
         #Filter properties:
         "cutoff_den": 2.0001,     # Cutoff parameter.
@@ -72,6 +74,7 @@ if len(sys.argv) == 1:
 else:
     
     cluster = True
+    mode = "online"
 
     # Do we use a script to run the code (for cluster):
     folder = sys.argv[1] 
@@ -93,6 +96,7 @@ config = {"time" : time, **training_properties, **model_architecture_}
 wandb.login()
 run = wandb.init(
     project = "StrakaCNO", 
+    mode = mode,
     config=config)
 folder += run.name
 
@@ -117,7 +121,7 @@ df.to_csv(folder + '/net_architecture.txt', header=False, index=True, mode='w')
 
 if which_example == "straka":
     print("Loading example")
-    example = Straka(model_architecture_, device, batch_size, training_samples, time=time, s=s, dataloc=dataloc, cluster=True)
+    example = Straka(model_architecture_, device, batch_size, training_samples, time=time, s=s, dataloc=dataloc, cluster=cluster)
     print("Loaded example")
 else:
     raise ValueError()

@@ -284,6 +284,7 @@ class Straka:
         radial = network_properties["radial_filter"]
         half_width_mult = network_properties["half_width_mult"]
         lrelu_upsampling = network_properties["lrelu_upsampling"]
+        attention = network_properties["attention"]
     
         torch.manual_seed(retrain)
         
@@ -301,6 +302,7 @@ class Straka:
                                 lrelu_upsampling = lrelu_upsampling,
                                 half_width_mult = half_width_mult,
                                 channel_multiplier = channel_multiplier,
+                                attention = attention
                                 ).to(device)
         
         #Change number of workers accoirding to your preference
