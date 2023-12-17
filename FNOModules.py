@@ -214,7 +214,7 @@ class FNO2d(nn.Module):
         if self.attention:
             self.self_attention = LinearAttention(self.width)
         else:
-            self.self_attention = lambda x : x
+            self.self_attention = nn.Identity()
 
         self.q = nn.Sequential(nn.Linear(self.width, 128),
                                self.act,

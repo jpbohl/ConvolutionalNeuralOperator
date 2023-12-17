@@ -114,10 +114,10 @@ if not os.path.isdir(folder):
     print("Generated new folder")
     os.mkdir(folder)
 
-df = pd.DataFrame.from_dict([training_properties]).T
-df.to_csv(folder + '/training_properties.txt', header=False, index=True, mode='w')
-df = pd.DataFrame.from_dict([model_architecture_]).T
-df.to_csv(folder + '/net_architecture.txt', header=False, index=True, mode='w')
+with open(folder + "training_properties.txt", "w") as f:
+    f.write(json.dumps(training_properties))
+with open(folder + "net_architecture.txt", "w") as f:
+    f.write(json.dumps(model_architecture_))
 
 if which_example == "straka":
     print("Loading example")
@@ -253,7 +253,7 @@ for epoch in range(epochs):
             if test_relative_l2 < best_model_testing_error:
                 best_model_testing_error = test_relative_l2
                 best_model = copy.deepcopy(model)
-                torch.save(best_model, folder + "/model.pkl")
+                torch.save(best_model.state_dict(), folder + "/model_weights.pt")
                 wandb.log(({"Best Relative Test Error" : best_model_testing_error}), step=epoch)
                 counter = 0
 

@@ -16,6 +16,7 @@ from datetime import date
 if len(sys.argv) == 1:
 
     cluster = False
+    mode = "disableb"
 
     training_properties = {
         "learning_rate": 0.001,
@@ -79,8 +80,9 @@ config = {"time" : time, **training_properties, **fno_architecture_}
 wandb.login()
 run = wandb.init(
     project = "StrakaFNO", 
+    mode = mode,
     config=config)
-folder += run.name # Change save directory name to wandb run name
+folder += (run.name + "/") # Change save directory name to wandb run name
 
 learning_rate = training_properties["learning_rate"]
 epochs = training_properties["epochs"]
@@ -105,11 +107,12 @@ if not os.path.isdir(folder):
     print("Generated new folder")
     os.mkdir(folder)
 
-df = pd.DataFrame.from_dict([training_properties]).T
-df.to_csv(folder + '/training_properties.txt', header=False, index=True, mode='w')
-df = pd.DataFrame.from_dict([fno_architecture_]).T
-df.to_csv(folder + '/net_architecture.txt', header=False, index=True, mode='w')
+with open(folder + "training_properties.json", "w") as f:
+    f.write(json.dumps(training_properties))
 
+with open(folder + "net_architecture.json", "w") as f:
+    f.write(json.dumps(fno_architecture_))
+    
 model = example.model
 n_params = model.print_size()
 train_loader = example.train_loader
@@ -226,7 +229,7 @@ for epoch in range(epochs):
             if test_relative_l2 < best_model_testing_error:
                 best_model_testing_error = test_relative_l2
                 best_model = copy.deepcopy(model)
-                torch.save(best_model, folder + "/model.pkl")
+                torch.save(best_model.state_dict(), folder + "/model_weights.pt")
                 wandb.log(({"Best Relative Test Error" : best_model_testing_error}), step=epoch)
                 counter = 0
                 

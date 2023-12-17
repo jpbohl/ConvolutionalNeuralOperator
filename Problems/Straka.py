@@ -102,10 +102,11 @@ class StrakaDataset(Dataset):
                 self.density.append(float(row[1]))
                 self.files.append(row[2])
 
-        if not ntest:
-            ntest = (512 - training_samples) // 2
+        total_samples = len(self.viscosity)
 
-        total_samples = training_samples + 2 * ntest
+        if not ntest:
+            ntest = (total_samples - training_samples) // 2
+
         self.files_t0 = [dataloc + f + "/fields/0.nc" for f in self.files[:total_samples]]
         self.files_t1 = [dataloc + f + f"/fields/{time}.nc" for f in self.files[:total_samples]]
                     
@@ -327,7 +328,7 @@ class StrakaFNO:
         else:
             self.N_Fourier_F = 0
         
-        self.model = FNO2d(network_properties, device, 0, 3 + 2 * self.N_Fourier_F, self_attention=True)
+        self.model = FNO2d(network_properties, device, 0, 3 + 2 * self.N_Fourier_F)
 
         #----------------------------------------------------------------------  
 
