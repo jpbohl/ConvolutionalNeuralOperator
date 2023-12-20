@@ -489,6 +489,10 @@ class CNO(nn.Module):
             for j in range(self.N_res):
                 y = self.res_nets[i*self.N_res + j](y)
             skip.append(y)
+        
+            # Apply self attention before first encoder
+            if self.attention and i == 0:
+                x = self.self_attention(x)
             
             # Apply (D) block
             x = self.encoder[i](x)   
@@ -497,18 +501,7 @@ class CNO(nn.Module):
 
         # Apply the deepest ResNet (bottle neck)
         for j in range(self.N_res_neck):
-            x2 = self.res_nets[-j-1](x)
-
-        # Apply self attention at bottom of U-Net
-        if self.attention:
-            x1 = self.self_attention(x)
-            x = x1 + x2
-            del x1
-            del x2
-        else:
-            x = x2
-            del x2
-        
+            x = self.res_nets[-j-1](x)
 
         # Execute Decoder -----------------------------------------------------
         for i in range(self.N_layers):

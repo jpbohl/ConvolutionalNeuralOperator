@@ -61,6 +61,7 @@ if len(sys.argv) == 1:
 else:
     # Do we use a script to run the code (for cluster):
     cluster = True
+    mode = "online"
     folder = sys.argv[1]
     
     # Reading hyperparameters
