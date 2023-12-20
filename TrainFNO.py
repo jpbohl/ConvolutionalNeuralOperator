@@ -16,7 +16,7 @@ from datetime import date
 if len(sys.argv) == 1:
 
     cluster = False
-    mode = "disableb"
+    mode = "disabled"
 
     training_properties = {
         "learning_rate": 0.001,
@@ -35,7 +35,9 @@ if len(sys.argv) == 1:
         "n_layers": 2, #Number of Fourier layers
         "retrain": 4, #Random seed
         "in_size": 128,
-        "self_attention" : True
+        "attention" : True,
+        "key_dim" : 8,
+        "value_dim" : 16,
     }
     
     #   "which_example" can be 

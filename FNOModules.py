@@ -187,7 +187,9 @@ class FNO2d(nn.Module):
         self.width = fno_architecture["width"]
         self.n_layers = fno_architecture["n_layers"]
         self.retrain_fno = fno_architecture["retrain"]
-        self.attention = fno_architecture["self_attention"]
+        self.attention = fno_architecture["attention"]
+        self.key_dim = fno_architecture["key_dim"]
+        self.value_dim = fno_architecture["value_dim"]
 
         torch.manual_seed(self.retrain_fno)
         self.padding_frac = padding_frac
@@ -212,7 +214,7 @@ class FNO2d(nn.Module):
         self.spectral_list = nn.ModuleList([SpectralConv2d(self.width, self.width, self.modes1, self.modes2) for _ in range(self.n_layers)])
         
         if self.attention:
-            self.self_attention = LinearAttention(self.width)
+            self.self_attention = LinearAttention(self.width, key_dim=self.key_dim, value_dim=self.value_dim)
         else:
             self.self_attention = nn.Identity()
 
