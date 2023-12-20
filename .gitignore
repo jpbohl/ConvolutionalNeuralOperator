@@ -1,5 +1,6 @@
 
 desktop.ini
+<<<<<<< HEAD
 /data/
 /TrainedModels
 *.pyc
@@ -50,3 +51,16 @@ torch_utils/ops/__pycache__/conv2d_gradfix.cpython-39.pyc
 torch_utils/ops/__pycache__/filtered_lrelu.cpython-39.pyc
 torch_utils/ops/__pycache__/upfirdn2d.cpython-39.pyc
 model.pkl
+=======
+
+*.pyc
+*.json
+*.pkl
+*.png
+*.h5
+
+TrainedModels/
+wandb/
+
+events
+>>>>>>> main
