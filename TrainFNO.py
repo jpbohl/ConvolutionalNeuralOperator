@@ -16,7 +16,7 @@ from datetime import date
 if len(sys.argv) == 1:
 
     cluster = False
-    mode = "disableb"
+    mode = "disabled"
 
     training_properties = {
         "learning_rate": 0.001,
@@ -59,6 +59,7 @@ if len(sys.argv) == 1:
 else:
     # Do we use a script to run the code (for cluster):
     cluster = True
+    mode = "online"
     folder = sys.argv[1]
     
     # Reading hyperparameters

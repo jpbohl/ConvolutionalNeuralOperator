@@ -4,5 +4,6 @@
     "n_layers": 5,
     "retrain": 4,
     "width": 64,
-    "in_size": 256
+    "in_size": 256,
+    "self_attention": true
 }
