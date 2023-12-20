@@ -1,2 +1,13 @@
 
 desktop.ini
+
+*.pyc
+*.json
+*.pkl
+*.png
+*.h5
+
+TrainedModels/
+wandb/
+
+events
