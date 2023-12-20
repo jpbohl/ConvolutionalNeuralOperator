@@ -1,6 +1,8 @@
 # Convolutional Neural Operators for robust and accurate learning of PDEs
 
-This repository is the official implementation of the paper **Convolutional Neural Operators for robust and accurate learning of PDEs** (see https://arxiv.org/pdf/2302.01178.pdf).
+This repository is the official implementation of the paper **Convolutional Neural Operators for robust and accurate learning of PDEs** (see https://arxiv.org/pdf/2302.01178.pdf). The paper is presented at NeurIPS 2023.
+
+**Read our blog at** https://link.medium.com/Mht8Th5OhFb !
 
 ![alt text](/figures/diag.png)
 
@@ -51,7 +53,7 @@ Their official github page is https://github.com/NVlabs/stylegan3.
 
 
 ## Source Data
-We cover instances of the Poisson, Wave, Navier-Stokes, Allen-Cahn, Transport and Compressible Euler equations and Darcy flow. Data can be downloaded from https://zenodo.org/records/10058382 (~2.8GB).
+We cover instances of the Poisson, Wave, Navier-Stokes, Allen-Cahn, Transport and Compressible Euler equations and Darcy flow. Data can be downloaded from https://zenodo.org/records/10406879 (~2.8GB).
 
 Alternatively, run the script `download_data.py` which downloads all required data into the appropriate folder (it requires 'wget' to be installed on your system).
 
@@ -117,10 +119,10 @@ If a slurm-base cluster is available, set sbatch=True and cluster="true" in the 
 
 ## Error Computations
 
-To compute the relative L1 median errors of the CNO, FNO and UNet models, one scould run the scripts "ErrorDistribution.py".
+To compute the relative L1 median errors of the CNO and FNO models, one scould run the scripts "ErrorDistribution.py".
 
 In the "ErrorDistribution.py" file, one should select the variable "which", corresponding to a benchmark experiment. 
 
-In the same file, one can set a variable "plot = True" to plot a random sample and predictions for the CNO, FNO and UNet models.
-One can also set "plot = False" to compute the errors for the CNO, FNO and UNet models. By selecting "in_dist = False", one obtains out-of-distribution test errors. 
+In the same file, one can set a variable "plot = True" to plot a random sample and predictions for the CNO and FNO models.
+One can also set "plot = False" to compute the errors for the CNO and FNO models. By selecting "in_dist = False", one obtains out-of-distribution test errors. 
 
