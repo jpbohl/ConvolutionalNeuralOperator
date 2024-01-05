@@ -490,10 +490,6 @@ class CNO(nn.Module):
                 y = self.res_nets[i*self.N_res + j](y)
             skip.append(y)
         
-            # Apply self attention before first encoder
-            if self.attention and i == 0:
-                x = self.self_attention(x)
-            
             # Apply (D) block
             x = self.encoder[i](x)   
         

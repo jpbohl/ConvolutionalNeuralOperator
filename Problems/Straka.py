@@ -111,6 +111,8 @@ class StrakaDataset(Dataset):
         self.files_t1 = [dataloc + f + f"/fields/{time}.nc" for f in self.files[:total_samples]]
                     
         drop = ["u", "v", "w", "s", "buoyancy_frequency"]
+
+        parallel = True if cluster else False
         self.t0 = xr.open_mfdataset(self.files_t0, combine="nested", concat_dim="index", parallel=True, drop_variables=drop).temperature                    
         self.t1 = xr.open_mfdataset(self.files_t1, combine="nested", concat_dim="index", parallel=True, drop_variables=drop).temperature
 
