@@ -113,8 +113,8 @@ class StrakaDataset(Dataset):
         drop = ["u", "v", "w", "s", "buoyancy_frequency"]
 
         parallel = True if cluster else False
-        self.t0 = xr.open_mfdataset(self.files_t0, combine="nested", concat_dim="index", parallel=True, drop_variables=drop).temperature                    
-        self.t1 = xr.open_mfdataset(self.files_t1, combine="nested", concat_dim="index", parallel=True, drop_variables=drop).temperature
+        self.t0 = xr.open_mfdataset(self.files_t0, combine="nested", concat_dim="index", parallel=True, drop_variables=drop, autoclose=True).temperature                    
+        self.t1 = xr.open_mfdataset(self.files_t1, combine="nested", concat_dim="index", parallel=True, drop_variables=drop, autoclose=True).temperature
 
         # Background profile 
         self.bpf = self.t0.isel(index=0, x=0).data

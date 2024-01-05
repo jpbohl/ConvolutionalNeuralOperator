@@ -62,6 +62,8 @@ if len(sys.argv) == 1:
     #   shear_layer         : Navier-Stokes equations
     #   airfoil             : Compressible Euler equations
     
+    with open("sweep.json") as io:
+        sweep_configuration = json.loads(io.read())
 
     which_example = "straka"
     time = 300
@@ -92,58 +94,19 @@ else:
     time = int(sys.argv[6])
     dataloc = sys.argv[7]
 
-
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-config = {"time" : time, **training_properties, **model_architecture_}
+
 wandb.login()
+config = {"time" : time, **training_properties, **model_architecture_}
 sweep_id = wandb.sweep(sweep=sweep_configuration, project="StrakaCNO")
 
-run = wandb.init(
-    mode = mode,
-    config=config)
-folder += run.name
 
-# Modify model parameters given by hyperparameter search
-model_architecture_["N_res"] = wandb.config.N_res
-model_architecture_["N_res_neck"] = wandb.config.N_res_neck
-model_architecture_["channel_multiplier"] = wandb.config.channel_multiplier
-
-# Get fixed training properties
-epochs = training_properties["epochs"]
-batch_size = training_properties["batch_size"]
-training_samples = training_properties["training_samples"]
-p = training_properties["exp"]
-s = model_architecture_["in_size"]
-
-if not os.path.isdir(folder):
-    print("Generated new folder")
-    os.mkdir(folder)
-
-
-if which_example == "straka":
-    print("Loading example")
-    example = Straka(model_architecture_, device, batch_size, training_samples, time=time, s=s, dataloc=dataloc, cluster=cluster)
-    print("Loaded example")
-else:
-    raise ValueError()
     
 #-----------------------------------Train--------------------------------------
     
-best_model_testing_error = 1000 #Save the model once it has less than 1000% relative L1 error
-patience = int(0.2 * epochs)    # Early stopping parameter
-counter = 0
-
-if str(device) == 'cpu':
-    print("------------------------------------------")
-    print("YOU ARE RUNNING THE CODE ON A CPU.")
-    print("WE SUGGEST YOU TO RUN THE CODE ON A GPU!")
-    print("------------------------------------------")
-    print(" ")
-
-
 class Trainer():
 
-    def init(self, training_properties, example, device):
+    def __init__(self, training_properties, example, device):
         
         # Loading training properties
         learning_rate = training_properties["learning_rate"]
@@ -151,25 +114,21 @@ class Trainer():
         scheduler_step = training_properties["scheduler_step"]
         scheduler_gamma = training_properties["scheduler_gamma"]
         
-        # Set up optimizer and scheduler
-        self.optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-        self.scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=scheduler_step, gamma=scheduler_gamma)
-        
         # Get model and dataset
         self.model = example.model
-        n_params = model.print_size()
+        n_params = self.model.print_size()
         self.train_loader = example.train_loader #TRAIN LOADER
         self.val_loader = example.val_loader #VALIDATION LOADER
-
-        # Determine Loss Function
-        if p == 1:
-            self.loss = torch.nn.L1Loss()
-        elif p == 2:
-            self.loss = torch.nn.MSELoss()
-
+        
+        # Set up optimizer and scheduler
+        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=scheduler_step, gamma=scheduler_gamma)
+        
+        # Loss Function
+        self.loss = torch.nn.MSELoss()
         self.device = device
 
-    def train_epoch(self, epoch):
+    def train_epoch(self):
         self.model.train()
         train_mse = 0.0
         running_relative_train_mse = 0.0
@@ -188,10 +147,9 @@ class Trainer():
 
         self.scheduler.step()
 
-
         return train_mse
 
-    def validate(self, epoch):
+    def validate(self):
         
         with torch.no_grad():
             self.model.eval()
@@ -206,11 +164,9 @@ class Trainer():
                 
                 loss_f = torch.mean(abs(output_pred_batch - output_batch)) / torch.mean(abs(output_batch)) * 100
                 test_relative_l2 += loss_f.item()
-            test_relative_l2 /= len(val_loader)
-
+            test_relative_l2 /= len(self.val_loader)
 
             return test_relative_l2
-
 
     def log_plots(self, model, val_loader):
         """
@@ -267,16 +223,37 @@ class Trainer():
         return figi, figp, fige
 
 # Training loop
-def main(trainer, epochs):
-    for epoch in range(epochs):
+def train(config=None):
+    
+    with wandb.init(config):
+        config = wandb.config
+        # Modify model parameters given by hyperparameter search
+        model_architecture_["N_res"] = config.N_res
+        model_architecture_["N_res_neck"] = config.N_res_neck
+        model_architecture_["channel_multiplier"] = config.channel_multiplier
 
-        train_mse = trainer.train_epoch()
-        val_loss = trainer.eval()
+        # Get fixed training properties
+        epochs = training_properties["epochs"]
+        batch_size = training_properties["batch_size"]
+        training_samples = training_properties["training_samples"]
+        p = training_properties["exp"]
+        s = model_architecture_["in_size"]
+
+        if not os.path.isdir(folder):
+            print("Generated new folder")
+            os.mkdir(folder)
+
+        example = Straka(model_architecture_, device, batch_size, training_samples, time=time, s=s, dataloc=dataloc, cluster=cluster)
+        trainer = Trainer(training_properties, example, device)
+        for epoch in range(epochs):
+
+            train_mse = trainer.train_epoch()
+            val_loss = trainer.validate()
         
-        wandb.log(({
-            "Train Loss" : train_mse,
-            "Relative L2 Test Error" : val_loss}), 
-            step=epoch)
+            wandb.log(({
+                "Train Loss" : train_mse,
+                "Relative L2 Test Error" : val_loss}), 
+                step=epoch)
 
 
-wandb.agent(sweep_id, function=main, count=4)
+wandb.agent(sweep_id, function=train, count=4)
