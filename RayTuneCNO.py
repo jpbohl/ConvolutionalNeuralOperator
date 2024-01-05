@@ -9,7 +9,6 @@ import torch
 from tqdm import tqdm
 
 from ray import train, tune
-from ray.train import Checkpoint
 from ray.tune.schedulers import ASHAScheduler
 import matplotlib.pyplot as plt
 
@@ -86,8 +85,8 @@ else:
         model_architecture_ = json.loads(f.read().replace("\'", "\""))
 
     # Determine problem to run and data location
-    time = int(sys.argv[6])
-    dataloc = sys.argv[7]
+    time = int(sys.argv[4])
+    dataloc = sys.argv[5]
 
 #-----------------------------------Train--------------------------------------
     
@@ -189,11 +188,11 @@ def train_model(config):
         train_mse = trainer.train_epoch(epoch)
         val_loss = trainer.validate()
 
-        with tempfile.TemporaryDirectory() as temp_checkpoint_dir:
-            path = os.path.join(temp_checkpoint_dir, "checkpoint.pt")
+        with tune.checkpoint_dir(step=epoch) as checkpoint_dir:
+            path = os.path.join(checkpoint_dir, "checkpoint.pt")
             torch.save((trainer.model.state_dict(), trainer.optimizer.state_dict()), path)
-            checkpoint = Checkpoint.from_directory(temp_checkpoint_dir)
-            train.report({"loss": val_loss}, checkpoint=checkpoint)
+            
+        tune.report(loss= val_loss)
         
         print(f"Epoch {epoch} // Train MSE {train_mse} // Test Loss {val_loss}")
 
@@ -210,25 +209,19 @@ def main(num_samples=10, max_num_epochs=600, gpus_per_trial=1):
         grace_period=1,
         reduction_factor=2)
     
-    tuner = tune.Tuner(
-        tune.with_resources(
-            tune.with_parameters(train_model),
-            resources={"cpu": 8, "gpu": gpus_per_trial}
-        ),
-        tune_config=tune.TuneConfig(
-            metric="loss",
-            mode="min",
-            scheduler=scheduler,
-            num_samples=num_samples,
-        ),
-        param_space=config,
-    )
-    results = tuner.fit()
-    
-    best_result = results.get_best_result("loss", "min")
+    results = tune.run(
+        tune.with_parameters(train_model),
+        resources_per_trial = {"cpu": 8, "gpu": gpus_per_trial},
+        config = config,
+        metric="loss",
+        mode="min",
+        scheduler=scheduler,
+        num_samples=num_samples)
 
-    print("Best trial config: {}".format(best_result.config))
+    best_trial = result.get_best_trial("loss", "min", "last")
+
+    print("Best trial config: {}".format(best_trial.config))
     print("Best trial final validation loss: {}".format(
-        best_result.metrics["loss"]))
+        best_trial.metrics["loss"]))
 
-main(num_samples=1, max_num_epochs=20, gpus_per_trial=1)
+main(num_samples=1, max_num_epochs=20, gpus_per_trial=0)
