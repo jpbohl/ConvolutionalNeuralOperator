@@ -87,12 +87,11 @@ else:
     with open(sys.argv[3], "r") as f:
         model_architecture_ = json.loads(f.read().replace("\'", "\""))
     with open(sys.argv[4], "r") as f:
-        sweep_config = json.loads(f.read().replace("\'", "\""))
+        sweep_configuration = json.loads(f.read().replace("\'", "\""))
 
     # Determine problem to run and data location
-    which_example = sys.argv[5]
-    time = int(sys.argv[6])
-    dataloc = sys.argv[7]
+    time = int(sys.argv[5])
+    dataloc = sys.argv[6]
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -252,7 +251,7 @@ def train(config=None):
         
             wandb.log(({
                 "Train Loss" : train_mse,
-                "Relative L2 Test Error" : val_loss}), 
+                "Val Loss" : val_loss}), 
                 step=epoch)
 
 
