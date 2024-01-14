@@ -83,7 +83,7 @@ def default_param(network_properties):
 #Poisson data:
 
 class StrakaDataset(Dataset):
-    def __init__(self, dataloc, which="training", nf=0, training_samples = 400, time=300, s=128, ntest=None, in_dist = True, cno=True, cluster=True):
+    def __init__(self, dataloc, which="training", nf=0, training_samples = 400, s=256, ntest=None, in_dist = True, cno=True, cluster=True):
         
         #Overview file:
         with open(dataloc + "overview.csv") as f:
@@ -108,13 +108,17 @@ class StrakaDataset(Dataset):
             ntest = (total_samples - training_samples) // 2
 
         self.files_t0 = [dataloc + f + "/fields/0.nc" for f in self.files[:total_samples]]
-        self.files_t1 = [dataloc + f + f"/fields/{time}.nc" for f in self.files[:total_samples]]
+        self.files_t1 = [dataloc + f + f"/fields/300.nc" for f in self.files[:total_samples]]
+        self.files_t2 = [dataloc + f + f"/fields/600.nc" for f in self.files[:total_samples]]
+        self.files_t3 = [dataloc + f + f"/fields/900.nc" for f in self.files[:total_samples]]
                     
         drop = ["u", "v", "w", "s", "buoyancy_frequency"]
 
         parallel = True if cluster else False
         self.t0 = xr.open_mfdataset(self.files_t0, combine="nested", concat_dim="index", parallel=True, drop_variables=drop, autoclose=True).temperature                    
         self.t1 = xr.open_mfdataset(self.files_t1, combine="nested", concat_dim="index", parallel=True, drop_variables=drop, autoclose=True).temperature
+        self.t2 = xr.open_mfdataset(self.files_t2, combine="nested", concat_dim="index", parallel=True, drop_variables=drop, autoclose=True).temperature
+        self.t3 = xr.open_mfdataset(self.files_t3, combine="nested", concat_dim="index", parallel=True, drop_variables=drop, autoclose=True).temperature
 
         # Background profile 
         self.bpf = self.t0.isel(index=0, x=0).data
@@ -122,32 +126,15 @@ class StrakaDataset(Dataset):
         # Removing background profile
         self.t0 = self.t0 - self.bpf
         self.t1 = self.t1 - self.bpf
+        self.t2 = self.t2 - self.bpf
+        self.t3 = self.t3 - self.bpf
         
-        # Selecting windows of interest
-        if time == 300:
-            self.t0 = self.t0.isel(x=np.arange(511, 511+128))
-            self.t1 = self.t1.isel(x=np.arange(511, 511+128))
-
-        elif time == 600:
-            new_zs = self.get_new_zs()
-
-            self.t0 = self.t0.isel(x=np.arange(511, 511+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
-            self.t1 = self.t1.isel(x=np.arange(511, 511+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
+        new_zs = self.get_new_zs()
+        self.t0 = self.t0.isel(x=np.arange(511, 511+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
+        self.t1 = self.t1.isel(x=np.arange(511, 511+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
+        self.t2 = self.t2.isel(x=np.arange(511, 511+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
+        self.t3 = self.t3.isel(x=np.arange(600, 600+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
         
-        elif time == 900:
-            new_zs = self.get_new_zs()
-
-            self.t0 = self.t0.isel(x=np.arange(511, 511+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
-            self.t1 = self.t1.isel(x=np.arange(600, 600+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
-
-        elif time == 900:
-            new_zs = self.get_new_zs()
-
-            self.t0 = self.t0.isel(x=np.arange(511, 511+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
-            self.t1 = self.t1.isel(x=np.arange(600, 600+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
-        else:
-            raise NotImplementedError("Only Timesteps 300 and 600 implemented")
-
         if cluster:
             # Write files to tmp
             try:
@@ -158,10 +145,14 @@ class StrakaDataset(Dataset):
             # Save data to avoid interpolating every time a sample is loaded
             self.t0.to_netcdf(TMP + "t0.nc", mode="w")
             self.t1.to_netcdf(TMP + "t1.nc", mode="w")
+            self.t2.to_netcdf(TMP + "t2.nc", mode="w")
+            self.t3.to_netcdf(TMP + "t3.nc", mode="w")
 
             # Reload data
             self.t0 = xr.open_dataarray(TMP + "t0.nc", engine="netcdf4")
             self.t1 = xr.open_dataarray(TMP + "t1.nc", engine="netcdf4")
+            self.t2 = xr.open_dataarray(TMP + "t2.nc", engine="netcdf4")
+            self.t3 = xr.open_dataarray(TMP + "t3.nc", engine="netcdf4")
 
         # Computing stats for standardization
         self.mean_ic = self.t0.mean().compute()
@@ -170,8 +161,13 @@ class StrakaDataset(Dataset):
         self.mean_data = torch.tensor([mean(self.viscosity), mean(self.density), self.mean_ic.item()])
         self.std_data = torch.tensor([stdev(self.viscosity), stdev(self.density), self.std_ic.item()])
         
-        self.mean_model = self.t1.mean().compute().item()
-        self.std_model = self.t1.std().compute().item()
+        self.mean1 = self.t1.mean().compute().item()
+        self.mean2 = self.t2.mean().compute().item()
+        self.mean3 = self.t3.mean().compute().item()
+        
+        self.std1 = self.t1.std().compute().item()
+        self.std2 = self.t2.std().compute().item()
+        self.std3 = self.t3.std().compute().item()
 
         self.s = s #Sampling rate
         self.nsamples = len(self.viscosity) # Determine number of samples
@@ -181,19 +177,19 @@ class StrakaDataset(Dataset):
 
         # Splitting data into train, test and validation sets
         if which == "training":
-            self.length = training_samples
+            self.length = 3 * training_samples
             self.start = 0
 
             if training_samples > self.nsamples:
                 raise ValueError("Only {self.nsamples} samples available")
 
         elif which == "validation":
-            self.length = self.ntest
+            self.length = 3 * self.ntest
             self.start = training_samples 
 
         elif which == "test":
             if in_dist: #Is it in-distribution?
-                self.length = self.ntest
+                self.length = 3 * self.ntest
                 self.start = training_samples + self.ntest
             else:
                 raise NotImplementedError("Out of distribution training not implemented")
@@ -215,7 +211,36 @@ class StrakaDataset(Dataset):
 
     def __getitem__(self, index):
 
-        index = index + self.start
+        samples_per_ts = int(self.length / 3)
+        if index in range(0, samples_per_ts):
+
+            time = 0.3
+
+            label_data = self.t1
+            label_mean = self.mean1
+            label_std = self.std1
+
+            index = index + self.start
+
+        elif index in range(samples_per_ts, 2 * samples_per_ts):
+
+            time = 0.6
+
+            label_data = self.t2
+            label_mean = self.mean2
+            label_std = self.std2
+
+            index = index - samples_per_ts + self.start
+
+        elif index in range(2 * samples_per_ts, self.length):
+
+            time = 0.9
+
+            label_data = self.t3
+            label_mean = self.mean3
+            label_std = self.std3
+
+            index = index - 2 * samples_per_ts + self.start
         
         # Assembling inputs
         ic = torch.tensor(self.t0.isel(index=index).compute().data, dtype=torch.float32)
@@ -225,11 +250,15 @@ class StrakaDataset(Dataset):
         inputs = torch.cat([visc, dens, ic], dim=-1)
 
         # Getting labels
-        labels = torch.tensor(self.t1.isel(index=index).compute().data, dtype=torch.float32)
+        labels = torch.tensor(label_data.isel(index=index).compute().data, dtype=torch.float32)
 
         # Standardize data
         inputs = (inputs - self.mean_data) / self.std_data
-        labels = (labels - self.mean_model) / self.std_model
+        labels = (labels - label_mean) / label_std
+
+        # Add time to input
+        time = time * torch.ones_like(ic)
+        inputs = torch.cat([time, inputs], dim=-1)
 
         # Reshape tensors to nchannels x s x s (shape expected by CNO code)
         if self.cno:
@@ -282,8 +311,10 @@ class Straka:
         else:
             raise ValueError("You must specify the number of (R)-neck blocks.")
         
+        
         #Load default parameters if they are not in network_properties
         network_properties = default_param(network_properties)
+        
         
         kernel_size = network_properties["kernel_size"]
         channel_multiplier = network_properties["channel_multiplier"]
@@ -302,7 +333,7 @@ class Straka:
         
         #----------------------------------------------------------------------
 
-        self.model = CNO(in_dim=3 + 2 * self.N_Fourier_F,  # Number of input channels.
+        self.model = CNO(in_dim=4 + 2 * self.N_Fourier_F,  # Number of input channels.
                                 in_size=s,
                                 cutoff_den=cutoff_den,
                                 N_layers=N_layers,
@@ -313,7 +344,8 @@ class Straka:
                                 conv_kernel=kernel_size,
                                 lrelu_upsampling = lrelu_upsampling,
                                 half_width_mult = half_width_mult,
-                                channel_multiplier = channel_multiplier
+                                channel_multiplier = channel_multiplier,
+                                attention = False
                                 ).to(device)
         
         #Change number of workers accoirding to your preference
@@ -322,9 +354,9 @@ class Straka:
         else:
             num_workers = 0
 
-        self.train_loader = DataLoader(StrakaDataset(dataloc, "training", self.N_Fourier_F, training_samples, time, s, ntest=ntest, cluster=cluster), batch_size=batch_size, shuffle=True, num_workers=num_workers)
-        self.val_loader = DataLoader(StrakaDataset(dataloc, "validation", self.N_Fourier_F, training_samples, time, s, ntest=ntest, cluster=cluster), batch_size=batch_size, shuffle=False, num_workers=num_workers)
-        self.test_loader = DataLoader(StrakaDataset(dataloc, "test", self.N_Fourier_F, training_samples, time, s, in_dist=in_dist, ntest=ntest, cluster=cluster), batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        self.train_loader = DataLoader(StrakaDataset(dataloc, "training", self.N_Fourier_F, training_samples, s, ntest=ntest, cluster=cluster), batch_size=batch_size, shuffle=True, num_workers=num_workers)
+        self.val_loader = DataLoader(StrakaDataset(dataloc, "validation", self.N_Fourier_F, training_samples, s, ntest=ntest, cluster=cluster), batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        self.test_loader = DataLoader(StrakaDataset(dataloc, "test", self.N_Fourier_F, training_samples, s, in_dist=in_dist, ntest=ntest, cluster=cluster), batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
 
 class StrakaFNO:
@@ -342,6 +374,7 @@ class StrakaFNO:
 
         #----------------------------------------------------------------------  
 
+        #Change number of workers accoirding to your preference
         if cluster:
             num_workers = 8
         else:

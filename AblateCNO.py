@@ -64,6 +64,7 @@ else:
     # Ablation study iteration 
     counter = int(os.environ["SLURM_ARRAY_TASK_ID"])
 
+h
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Update model architecture with ablation parameters
