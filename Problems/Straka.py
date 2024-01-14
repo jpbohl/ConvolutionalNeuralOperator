@@ -128,12 +128,17 @@ class StrakaDataset(Dataset):
             self.t0 = self.t0.isel(x=np.arange(511, 511+128))
             self.t1 = self.t1.isel(x=np.arange(511, 511+128))
 
-        elif time in (600, 900):
+        elif time == 600:
             new_zs = self.get_new_zs()
 
             self.t0 = self.t0.isel(x=np.arange(511, 511+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
             self.t1 = self.t1.isel(x=np.arange(511, 511+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
 
+        elif time == 900:
+            new_zs = self.get_new_zs()
+
+            self.t0 = self.t0.isel(x=np.arange(511, 511+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
+            self.t1 = self.t1.isel(x=np.arange(600, 600+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
         else:
             raise NotImplementedError("Only Timesteps 300 and 600 implemented")
 
@@ -287,7 +292,6 @@ class Straka:
         radial = network_properties["radial_filter"]
         half_width_mult = network_properties["half_width_mult"]
         lrelu_upsampling = network_properties["lrelu_upsampling"]
-        attention = network_properties["self_attention"]
     
         torch.manual_seed(retrain)
         
@@ -304,8 +308,7 @@ class Straka:
                                 conv_kernel=kernel_size,
                                 lrelu_upsampling = lrelu_upsampling,
                                 half_width_mult = half_width_mult,
-                                channel_multiplier = channel_multiplier,
-                                attention = attention
+                                channel_multiplier = channel_multiplier
                                 ).to(device)
         
         #Change number of workers accoirding to your preference

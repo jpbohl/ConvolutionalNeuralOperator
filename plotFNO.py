@@ -1,5 +1,6 @@
 import torch
 import matplotlib.pyplot as plt
+import matplotlib.colors as colors
 import numpy as np
 import json
 import sys
@@ -28,9 +29,9 @@ device = "cpu"
 dataloc = "/cluster/work/math/jabohl/StrakaData/data/"
 dataset = StrakaDataset(dataloc, time=time, ntest=56, which="validation", cno=cno)
 
-model = torch.load(runloc + "model.pkl", map_location=device)
-model = model.to(device)
-model.device = device
+model = FNO2d(fno_config, device, 0, 3)
+state_dict = torch.load(runloc + "model_weights.pt", map_location=device)
+model.load_state_dict(state_dict)
 
 # Adding attention attribute for models which did not have attention
 if not hasattr(model, "self_attention"):
@@ -47,9 +48,9 @@ model.eval()
 nrows = 4
 ncols = 4
 loader = iter(torch.utils.data.DataLoader(dataset, batch_size=4))
-fig1, axs1 = plt.subplots(nrows, ncols, sharex = True, sharey=True)
-fig2, axs2 = plt.subplots(nrows, ncols, sharex = True, sharey=True)
-fig3, axs3 = plt.subplots(nrows, ncols, sharex = True, sharey=True)
+fig1, axs1 = plt.subplots(nrows, ncols, sharex = True, sharey=True, layout="tight")
+fig2, axs2 = plt.subplots(nrows, ncols, sharex = True, sharey=True, layout="tight")
+fig3, axs3 = plt.subplots(nrows, ncols, sharex = True, sharey=True, layout="tight")
 
 fig1.subplots_adjust(hspace=.5)
 fig2.subplots_adjust(hspace=.5)
@@ -73,9 +74,9 @@ for i in range(nrows):
         d = round(x[j, 0, 0, 1].item(), 1)
 
         # Plotting
-        labels = axs1[i, j].pcolormesh(y[j, :, :, 0].T)
-        preds = axs2[i, j].pcolormesh(yhat[j, :, :, 0].T)
-        diffs = axs3[i, j].pcolormesh(error[j, :, :, 0].T)
+        labels = axs1[i, j].pcolormesh(y[j, :, :, 0].T, norm=colors.CenteredNorm(), cmap="seismic")
+        preds = axs2[i, j].pcolormesh(yhat[j, :, :, 0].T, norm=colors.CenteredNorm(), cmap="seismic")
+        diffs = axs3[i, j].pcolormesh(error[j, :, :, 0].T, norm=colors.CenteredNorm(), cmap="seismic")
 
         sample_l1_loss = round(l1_loss[j], 1)
         fd = {"fontsize" : 8}

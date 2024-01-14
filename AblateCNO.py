@@ -97,6 +97,7 @@ example = Straka(model_architecture_, device, batch_size, training_samples, time
 trainer = Trainer(training_properties, example, device)
 
 # Training loop
+print("Training")
 for epoch in range(epochs):
 
     train_mse = trainer.train_epoch()
@@ -108,3 +109,4 @@ for epoch in range(epochs):
         "Train Loss" : train_mse,
         "Relative L2 Test Error" : val_loss}), 
         step=epoch)
+
