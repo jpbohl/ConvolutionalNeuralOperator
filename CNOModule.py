@@ -473,7 +473,7 @@ class CNO(nn.Module):
 
         # Define self attention layer
         self.attention = True
-        self.self_attention = LinearAttention(self.encoder_features[-1])
+        self.self_attention = LinearAttention(self.decoder_features_out[-1])
 
     def forward(self, x):
                  
@@ -512,6 +512,13 @@ class CNO(nn.Module):
                 x = self.decoder_inv[i](x)
             # Apply (U) block
             x = self.decoder[i](x)
+        
+        # Execute self attention
+        y = self.self_attention(x)
+
+        x = x + y
+
+
         # Cat & Execute Projetion ---------------------------------------------
 
         x = torch.cat((x, self.ED_expansion[0](skip[0])),1)

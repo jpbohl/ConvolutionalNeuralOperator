@@ -292,7 +292,7 @@ class Straka:
         radial = network_properties["radial_filter"]
         half_width_mult = network_properties["half_width_mult"]
         lrelu_upsampling = network_properties["lrelu_upsampling"]
-        attention = network_properties["self_attention"]
+        attention = network_properties["attention"]
     
         torch.manual_seed(retrain)
         
