@@ -82,15 +82,14 @@ else:
         model_architecture_ = json.loads(f.read().replace("\'", "\""))
 
     # Determine problem to run and data location
-    which_example = sys.argv[4]
-    dataloc = sys.argv[5]
+    dataloc = sys.argv[4]
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 config = {**training_properties, **model_architecture_}
 wandb.login()
 run = wandb.init(
-    project = "StrakaCNO", 
+    project = "StrakaCNOMT", 
     mode = mode,
     config=config)
 folder += run.name
