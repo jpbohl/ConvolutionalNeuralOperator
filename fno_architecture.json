@@ -6,6 +6,6 @@
     "width": 64,
     "in_size": 256,
     "attention" : true,
-    "key_dim" : 8,
+    "key_dim" : 4,
     "value_dim" : 32
 }

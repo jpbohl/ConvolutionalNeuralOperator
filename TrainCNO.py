@@ -86,9 +86,8 @@ else:
         model_architecture_ = json.loads(f.read().replace("\'", "\""))
 
     # Determine problem to run and data location
-    which_example = sys.argv[4]
-    time = int(sys.argv[5])
-    dataloc = sys.argv[6]
+    time = int(sys.argv[4])
+    dataloc = sys.argv[5]
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -119,12 +118,9 @@ with open(folder + "training_properties.txt", "w") as f:
 with open(folder + "net_architecture.txt", "w") as f:
     f.write(json.dumps(model_architecture_))
 
-if which_example == "straka":
-    print("Loading example")
-    example = Straka(model_architecture_, device, batch_size, training_samples, time=time, s=s, dataloc=dataloc, cluster=cluster)
-    print("Loaded example")
-else:
-    raise ValueError()
+print("Loading example")
+example = Straka(model_architecture_, device, batch_size, training_samples, time=time, s=s, dataloc=dataloc, cluster=cluster)
+print("Loaded example")
     
 #-----------------------------------Train--------------------------------------
 model = example.model
