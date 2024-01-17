@@ -12,6 +12,8 @@ import wandb
 import matplotlib.pyplot as plt
 
 from Problems.Straka import Straka
+from Problems.StrakaMB import Straka as StrakaMB
+from Problems.StrakaMT import Straka as StrakaMT
 
 if len(sys.argv) == 1:
 
@@ -37,7 +39,7 @@ if len(sys.argv) == 1:
         "N_res_neck" : 6,         # Number of (R) blocks in the BN
         
         #Other parameters:
-        "in_size": 128,            # Resolution of the computational grid
+        "in_size": 256,            # Resolution of the computational grid
         "retrain": 4,             # Random seed
         "kernel_size": 3,         # Kernel size.
         "FourierF": 0,            # Number of Fourier Features in the input channels. Default is 0.
@@ -63,10 +65,10 @@ if len(sys.argv) == 1:
     #   airfoil             : Compressible Euler equations
     
 
-    which_example = "straka"
+    which_example = "StrakaMB"
     time = 300
 
-    dataloc = "/Users/jan/sempaper/StrakaData/"
+    dataloc = "/Users/jan/sempaper/StrakaMB/data/"
 
     # Save the models here:
     folder = "TrainedModels/"
@@ -88,13 +90,15 @@ else:
     # Determine problem to run and data location
     time = int(sys.argv[4])
     dataloc = sys.argv[5]
+    which_example = sys.argv[6]
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 config = {"time" : time, **training_properties, **model_architecture_}
 wandb.login()
+
 run = wandb.init(
-    project = "StrakaCNO", 
+    project = which_example + "CNO", 
     mode = mode,
     config=config)
 folder += run.name
@@ -119,7 +123,12 @@ with open(folder + "net_architecture.txt", "w") as f:
     f.write(json.dumps(model_architecture_))
 
 print("Loading example")
-example = Straka(model_architecture_, device, batch_size, training_samples, time=time, s=s, dataloc=dataloc, cluster=cluster)
+if which_example == "Straka":
+    example = Straka(model_architecture_, device, batch_size, training_samples, time=time, s=s, dataloc=dataloc, cluster=cluster)
+
+elif which_example == "StrakaMB":
+    example = StrakaMB(model_architecture_, device, batch_size, training_samples, time=time, s=s, dataloc=dataloc, cluster=cluster)
+
 print("Loaded example")
     
 #-----------------------------------Train--------------------------------------
@@ -165,7 +174,7 @@ def log_plots(model, val_loader):
 
     # Logging initial conidition channel of inputs as well as outputs and
     # differences between predictions and labels
-    input_img = input_batch[0, 2, :, :].detach().cpu().numpy().T
+    input_img = input_batch[0, 0, :, :].detach().cpu().numpy().T
     pred_img = pred[0, 0, :, :].cpu().numpy().T
     label = output_batch[0, 0, :, :].detach().cpu().numpy().T
     diff_img = diffs[0, 0, :, :].cpu().numpy().T
