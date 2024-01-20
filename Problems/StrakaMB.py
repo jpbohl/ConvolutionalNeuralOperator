@@ -118,7 +118,12 @@ class StrakaDataset(Dataset):
             
             new_zs = np.linspace(0, 6400, s)
             self.t0 = self.t0.isel(x=np.arange(511, 511+s)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
-            self.t1 = self.t1.isel(x=np.arange(511, 511+s)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
+
+            if cno:
+                self.t1 = self.t1.isel(x=np.arange(511, 511+s)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
+            else:
+                self.t1 = self.t1.isel(x=np.arange(511, 1023)).coarsen(x=2).mean()
+                self.t1 = self.t1.interp(z=new_zs, kwargs={"fill_value":"extrapolate"})
         
 
         elif time == 900:
@@ -126,7 +131,12 @@ class StrakaDataset(Dataset):
             new_zs1 = np.linspace(0, 6400, 512)
 
             self.t0 = self.t0.isel(x=np.arange(511, 511+s)).interp(z=new_zs0, kwargs={"fill_value": "extrapolate"})
-            self.t1 = self.t1.isel(x=np.arange(511, 1023)).interp(z=new_zs1, kwargs={"fill_value": "extrapolate"})
+            
+            if cno:
+                self.t1 = self.t1.isel(x=np.arange(511, 1023)).interp(z=new_zs1, kwargs={"fill_value": "extrapolate"})
+            else:
+                self.t1 = self.t1.isel(x=np.arange(511, 1023)).coarsen(x=2).mean()
+                self.t1 = self.t1.interp(z=new_zs0, kwargs={"fill_value":"extrapolate"})
 
         else:
             raise NotImplementedError("Only Timesteps 300, 600, and 900 implemented")

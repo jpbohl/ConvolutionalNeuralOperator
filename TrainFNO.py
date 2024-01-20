@@ -35,7 +35,7 @@ if len(sys.argv) == 1:
         "FourierF" : 0, #Number of Fourier Features in the input channels. Default is 0.
         "n_layers": 2, #Number of Fourier layers
         "retrain": 4, #Random seed
-        "in_size": 512,
+        "in_size": 256,
         "attention" : False,
         "key_dim" : 8,
         "value_dim" : 16,
@@ -242,5 +242,6 @@ for epoch in range(epochs):
     
     if counter > patience:
         print("Early Stopping")
+        break
         
 log_plots(best_model, test_loader)
