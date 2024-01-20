@@ -5,7 +5,7 @@
     "retrain": 4,
     "width": 64,
     "in_size": 256,
-    "attention" : true,
+    "attention" : false,
     "key_dim" : 4,
     "value_dim" : 32
 }

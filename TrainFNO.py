@@ -11,6 +11,7 @@ import wandb
 import matplotlib.pyplot as plt
 
 from Problems.Straka import StrakaFNO
+from Problems.StrakaMB import StrakaFNO as StrakaFNOMB
 from datetime import date
 
 if len(sys.argv) == 1:
@@ -40,19 +41,8 @@ if len(sys.argv) == 1:
         "value_dim" : 16,
     }
     
-    #   "which_example" can be 
-    
-    #   poisson             : Poisson equation 
-    #   wave_0_5            : Wave equation
-    #   cont_tran           : Smooth Transport
-    #   disc_tran           : Discontinuous Transport
-    #   allen               : Allen-Cahn equation
-    #   shear_layer         : Navier-Stokes equations
-    #   airfoil             : Compressible Euler equations
-    
-
-    which_example = "straka"
-    time = 600
+    which_example = "StrakaMB"
+    time = 300
 
     # Save the models here:
     folder = "TrainedModels/"
@@ -71,9 +61,9 @@ else:
         fno_architecture_ = json.loads(f.read().replace("\'", "\""))
 
     # Determine problem to run and data location
-    which_example = sys.argv[4]
-    time = int(sys.argv[5])
-    dataloc = sys.argv[6]
+    time = int(sys.argv[4])
+    dataloc = sys.argv[5]
+    which_example = sys.argv[6]
     print("Loaded arguments")
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -82,7 +72,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 config = {"time" : time, **training_properties, **fno_architecture_}
 wandb.login()
 run = wandb.init(
-    project = "StrakaFNO", 
+    project = which_example + "FNO",
     mode = mode,
     config=config)
 folder += (run.name + "/") # Change save directory name to wandb run name
@@ -98,11 +88,10 @@ p = training_properties["exp"]
 s = fno_architecture_["in_size"]
 
 
-if which_example == "straka":
-    print("Loading example")
+if which_example == "Straka":
     example = StrakaFNO(fno_architecture_, device, batch_size, training_samples,time=time, s=s, dataloc=dataloc, cluster=cluster)
-    print("Loaded example")
-
+elif which_example == "StrakaMB":
+    example = StrakaFNOMB(fno_architecture_, device, batch_size, training_samples,time=time, s=s, dataloc=dataloc, cluster=cluster)
 else:
     raise ValueError("Problem not implemented")
 
@@ -130,7 +119,7 @@ if p == 1:
     loss = torch.nn.SmoothL1Loss()
 elif p == 2:
     loss = torch.nn.MSELoss()
-best_model_testing_error = 300
+best_model_testing_error = 1000
 patience = int(0.1 * epochs)
 counter = 0
 
@@ -151,7 +140,7 @@ def log_plots(model, val_loader):
 
     # Logging initial conidition channel of inputs as well as outputs and
     # differences between predictions and labels
-    input_img = input_batch[0, :, :, 2].cpu().numpy().T
+    input_img = input_batch[0, :, :, -1].cpu().numpy().T
     pred_img = pred[0, :, :, 0].cpu().numpy().T
     label = output_batch[0, :, :, 0].cpu().numpy().T
     diff_img = diffs[0, :, :, 0].cpu().numpy().T

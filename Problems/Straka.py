@@ -192,11 +192,8 @@ class StrakaDataset(Dataset):
             self.start = training_samples 
 
         elif which == "test":
-            if in_dist: #Is it in-distribution?
-                self.length = self.ntest
-                self.start = training_samples + self.ntest
-            else:
-                raise NotImplementedError("Out of distribution training not implemented")
+            self.length = self.ntest
+            self.start = training_samples + self.ntest
         
         #Fourier modes (Default is 0):
         self.N_Fourier_F = nf
