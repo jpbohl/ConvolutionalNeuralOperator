@@ -86,7 +86,7 @@ class StrakaDataset(Dataset):
     def __init__(self, dataloc, which="training", nf=0, training_samples = 400, time=300, s=128, ntest=None, in_dist = True, cno=True, cluster=True):
         
         # Get files:
-        files = [f for f in os.listdir(dataloc) if "Output" in f]
+        files = [f for f in sorted(os.listdir(dataloc)) if "Output" in f]
         total_samples = len(files)
 
         if not ntest:
@@ -109,24 +109,24 @@ class StrakaDataset(Dataset):
         self.t1 = self.t1 - self.bpf
         
         # Selecting windows of interest
-        new_zs = self.get_new_zs()
         if time == 300:
+            new_zs = np.linspace(0, 6400, 256)
             self.t0 = self.t0.isel(x=np.arange(511, 511+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
             self.t1 = self.t1.isel(x=np.arange(511, 511+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
 
         elif time == 600:
+            new_zs = np.linspace(0, 6400, 256)
             self.t0 = self.t0.isel(x=np.arange(511, 511+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
             self.t1 = self.t1.isel(x=np.arange(511, 511+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
         
-        elif time == 900:
-            self.t0 = self.t0.isel(x=np.arange(511, 511+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
-            self.t1 = self.t1.isel(x=np.arange(600, 600+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
 
         elif time == 900:
-            new_zs = self.get_new_zs()
+            new_zs0 = np.linspace(0, 6400, 256)
+            new_zs1 = np.linspace(0, 6400, 512)
 
-            self.t0 = self.t0.isel(x=np.arange(511, 511+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
-            self.t1 = self.t1.isel(x=np.arange(600, 600+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
+            self.t0 = self.t0.isel(x=np.arange(511, 511+256)).interp(z=new_zs0, kwargs={"fill_value": "extrapolate"})
+            self.t1 = self.t1.isel(x=np.arange(511, 1023)).interp(z=new_zs1, kwargs={"fill_value": "extrapolate"})
+
         else:
             raise NotImplementedError("Only Timesteps 300, 600, and 900 implemented")
 
@@ -182,15 +182,6 @@ class StrakaDataset(Dataset):
         #Fourier modes (Default is 0):
         self.N_Fourier_F = nf
 
-    def get_new_zs(self):
-        zs = self.t1.z.data
-        step = zs[1] - zs[0]
-        interp_zs = step / 2 + np.arange(0, 128) * step
-        new_zs = np.empty(256)
-        new_zs[::2] = zs
-        new_zs[1::2] = interp_zs
-        return new_zs
-
     def __len__(self):
         return self.length
 
@@ -244,6 +235,11 @@ class Straka:
         else:
             raise ValueError("You must specify the computational grid size.")
         
+        if "out_size" in network_properties:
+            self.out_size = network_properties["out_size"]
+        else:
+            raise ValueError("You must specify the computational grid size.")
+        
         if "N_layers" in network_properties:
             N_layers = network_properties["N_layers"]
         else:
@@ -281,7 +277,8 @@ class Straka:
         #----------------------------------------------------------------------
 
         self.model = CNO(in_dim=1 + 2 * self.N_Fourier_F,  # Number of input channels.
-                                in_size=s,
+                                in_size=self.in_size,
+                                out_size=self.out_size,
                                 cutoff_den=cutoff_den,
                                 N_layers=N_layers,
                                 N_res=N_res,

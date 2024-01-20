@@ -117,9 +117,9 @@ if not os.path.isdir(folder):
     print("Generated new folder")
     os.mkdir(folder)
 
-with open(folder + "training_properties.txt", "w") as f:
+with open(folder + "/training_properties.json", "w") as f:
     f.write(json.dumps(training_properties))
-with open(folder + "net_architecture.txt", "w") as f:
+with open(folder + "/net_architecture.json", "w") as f:
     f.write(json.dumps(model_architecture_))
 
 print("Loading example")
@@ -174,7 +174,7 @@ def log_plots(model, val_loader):
 
     # Logging initial conidition channel of inputs as well as outputs and
     # differences between predictions and labels
-    input_img = input_batch[0, 0, :, :].detach().cpu().numpy().T
+    input_img = input_batch[0, -1, :, :].detach().cpu().numpy().T
     pred_img = pred[0, 0, :, :].cpu().numpy().T
     label = output_batch[0, 0, :, :].detach().cpu().numpy().T
     diff_img = diffs[0, 0, :, :].cpu().numpy().T
