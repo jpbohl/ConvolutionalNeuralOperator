@@ -115,16 +115,17 @@ class StrakaDataset(Dataset):
             self.t1 = self.t1.isel(x=np.arange(511, 511+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
 
         elif time == 600:
-            new_zs = np.linspace(0, 6400, 256)
-            self.t0 = self.t0.isel(x=np.arange(511, 511+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
-            self.t1 = self.t1.isel(x=np.arange(511, 511+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
+            
+            new_zs = np.linspace(0, 6400, s)
+            self.t0 = self.t0.isel(x=np.arange(511, 511+s)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
+            self.t1 = self.t1.isel(x=np.arange(511, 511+s)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
         
 
         elif time == 900:
-            new_zs0 = np.linspace(0, 6400, 256)
+            new_zs0 = np.linspace(0, 6400, s)
             new_zs1 = np.linspace(0, 6400, 512)
 
-            self.t0 = self.t0.isel(x=np.arange(511, 511+256)).interp(z=new_zs0, kwargs={"fill_value": "extrapolate"})
+            self.t0 = self.t0.isel(x=np.arange(511, 511+s)).interp(z=new_zs0, kwargs={"fill_value": "extrapolate"})
             self.t1 = self.t1.isel(x=np.arange(511, 1023)).interp(z=new_zs1, kwargs={"fill_value": "extrapolate"})
 
         else:
@@ -306,6 +307,10 @@ class StrakaFNO:
     def __init__(self, network_properties, device, batch_size, training_samples = 3, time=300, s = 128, in_dist = True, dataloc="data/", cluster=True):
         
         retrain = network_properties["retrain"]
+
+        if "in_size" in network_properties:
+            s = network_properties["in_size"]
+
         torch.manual_seed(retrain)
 
         if "FourierF" in network_properties:

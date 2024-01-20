@@ -35,14 +35,14 @@ if len(sys.argv) == 1:
         "FourierF" : 0, #Number of Fourier Features in the input channels. Default is 0.
         "n_layers": 2, #Number of Fourier layers
         "retrain": 4, #Random seed
-        "in_size": 128,
-        "attention" : True,
+        "in_size": 512,
+        "attention" : False,
         "key_dim" : 8,
         "value_dim" : 16,
     }
     
     which_example = "StrakaMB"
-    time = 300
+    time = 900
 
     # Save the models here:
     folder = "TrainedModels/"
