@@ -140,6 +140,7 @@ elif which_example == "StrakaMB":
 print("Loaded example")
     
 #-----------------------------------Train--------------------------------------
+
 model = example.model
 n_params = model.print_size()
 train_loader = example.train_loader #TRAIN LOADER
@@ -179,6 +180,7 @@ for epoch in range(epochs):
         # Saving model
         weights = trainer.model.state_dict()
         torch.save(weights, folder + "/model_weights.pt")
+        torch.save(trainer.model, folder + "/model.pkl")
 
         best_model_testing_error = val_loss
         counter = 0
