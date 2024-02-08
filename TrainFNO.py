@@ -221,7 +221,6 @@ for epoch in range(epochs):
             if test_relative_l2 < best_model_testing_error:
                 best_model_testing_error = test_relative_l2
                 best_model = copy.deepcopy(model)
-                torch.save(best_model.state_dict(), folder + "/model_weights.pt")
                 wandb.log(({"Best Relative Test Error" : best_model_testing_error}), step=epoch)
                 counter = 0
                 
@@ -244,4 +243,7 @@ for epoch in range(epochs):
         print("Early Stopping")
         break
         
+torch.save(best_model.state_dict(), folder + "/model_weights.pt")
+torch.save(best_model, folder + "/model.pkl")
+torch.save(best_model(torch.ones_like(input_batch)).detach(), folder + "/ones.pt")
 log_plots(best_model, test_loader)

@@ -1,7 +1,6 @@
 import os
 import random
-import os
-import csv
+import json
 from statistics import mean, stdev
 
 import xarray as xr
@@ -83,16 +82,19 @@ def default_param(network_properties):
 #Poisson data:
 
 class StrakaDataset(Dataset):
-    def __init__(self, dataloc, which="training", nf=0, training_samples = 400, time=300, s=128, ntest=None, in_dist = True, cno=True, cluster=True):
+    def __init__(self, dataloc, which="training", nf=0, training_samples = 400, time=300, s=128, ntest=None, in_dist = True, cno=True, cluster=True, time0=0):
         
         # Get files:
-        files = [f for f in sorted(os.listdir(dataloc)) if "Output" in f]
+        with open(dataloc + "files.json", "r") as f:
+            files = json.loads(f.read())
+
+        # Determine number of total samples
         total_samples = len(files)
 
         if not ntest:
             ntest = (total_samples - training_samples) // 2
 
-        self.files_t0 = [dataloc + f + "/fields/0.nc" for f in files[:total_samples]]
+        self.files_t0 = [dataloc + f + f"/fields/{time0}.nc" for f in files[:total_samples]]
         self.files_t1 = [dataloc + f + f"/fields/{time}.nc" for f in files[:total_samples]]
                     
         drop = ["u", "v", "w", "s", "buoyancy_frequency"]
@@ -117,26 +119,18 @@ class StrakaDataset(Dataset):
         elif time == 600:
             
             new_zs = np.linspace(0, 6400, s)
-            self.t0 = self.t0.isel(x=np.arange(511, 511+s)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
 
-            if cno:
-                self.t1 = self.t1.isel(x=np.arange(511, 511+s)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
-            else:
-                self.t1 = self.t1.isel(x=np.arange(511, 1023)).coarsen(x=2).mean()
-                self.t1 = self.t1.interp(z=new_zs, kwargs={"fill_value":"extrapolate"})
+            self.t0 = self.t0.isel(x=np.arange(511, 511+s)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
+            self.t1 = self.t1.isel(x=np.arange(511, 1023)).coarsen(x=2).mean()
+            self.t1 = self.t1.interp(z=new_zs, kwargs={"fill_value":"extrapolate"})
         
 
         elif time == 900:
-            new_zs0 = np.linspace(0, 6400, s)
-            new_zs1 = np.linspace(0, 6400, 512)
+            new_zs = np.linspace(0, 6400, s)
 
-            self.t0 = self.t0.isel(x=np.arange(511, 511+s)).interp(z=new_zs0, kwargs={"fill_value": "extrapolate"})
-            
-            if cno:
-                self.t1 = self.t1.isel(x=np.arange(511, 1023)).interp(z=new_zs1, kwargs={"fill_value": "extrapolate"})
-            else:
-                self.t1 = self.t1.isel(x=np.arange(511, 1023)).coarsen(x=2).mean()
-                self.t1 = self.t1.interp(z=new_zs0, kwargs={"fill_value":"extrapolate"})
+            self.t0 = self.t0.isel(x=np.arange(511, 511+s)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
+            self.t1 = self.t1.isel(x=np.arange(511, 1023)).coarsen(x=2).mean()
+            self.t1 = self.t1.interp(z=new_zs, kwargs={"fill_value":"extrapolate"})
 
         else:
             raise NotImplementedError("Only Timesteps 300, 600, and 900 implemented")
@@ -237,7 +231,7 @@ class StrakaDataset(Dataset):
         return grid
 
 class Straka:
-    def __init__(self, network_properties, device, batch_size, training_samples = 400,time=300, s = 128, ntest=1, in_dist = True, dataloc="data/", cluster=True):
+    def __init__(self, network_properties, device, batch_size, training_samples = 400,time=300, time0=0, s = 128, ntest=None, in_dist = True, dataloc="data/", cluster=True):
         
         #Must have parameters: ------------------------------------------------        
 
@@ -299,7 +293,8 @@ class Straka:
                                 conv_kernel=kernel_size,
                                 lrelu_upsampling = lrelu_upsampling,
                                 half_width_mult = half_width_mult,
-                                channel_multiplier = channel_multiplier
+                                channel_multiplier = channel_multiplier,
+                                attention=attention
                                 ).to(device)
         
         #Change number of workers accoirding to your preference
@@ -308,13 +303,13 @@ class Straka:
         else:
             num_workers = 0
 
-        self.train_loader = DataLoader(StrakaDataset(dataloc, "training", self.N_Fourier_F, training_samples, time, s, ntest=ntest, cluster=cluster), batch_size=batch_size, shuffle=True, num_workers=num_workers)
-        self.val_loader = DataLoader(StrakaDataset(dataloc, "validation", self.N_Fourier_F, training_samples, time, s, ntest=ntest, cluster=cluster), batch_size=batch_size, shuffle=False, num_workers=num_workers)
-        self.test_loader = DataLoader(StrakaDataset(dataloc, "test", self.N_Fourier_F, training_samples, time, s, in_dist=in_dist, ntest=ntest, cluster=cluster), batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        self.train_loader = DataLoader(StrakaDataset(dataloc, "training", self.N_Fourier_F, training_samples, time, s,  time0=time0, cluster=cluster), batch_size=batch_size, shuffle=True, num_workers=num_workers)
+        self.val_loader = DataLoader(StrakaDataset(dataloc, "validation", self.N_Fourier_F, training_samples, time, s,  time0=time0, cluster=cluster), batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        self.test_loader = DataLoader(StrakaDataset(dataloc, "test", self.N_Fourier_F, training_samples, time, s, in_dist=in_dist,  time0=time0, cluster=cluster), batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
 
 class StrakaFNO:
-    def __init__(self, network_properties, device, batch_size, training_samples = 3, time=300, s = 128, in_dist = True, dataloc="data/", cluster=True):
+    def __init__(self, network_properties, device, batch_size, training_samples = 400, time=300, s = 128, in_dist = True, dataloc="data/", cluster=True):
         
         retrain = network_properties["retrain"]
 

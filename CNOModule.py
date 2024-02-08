@@ -265,7 +265,7 @@ class CNO(nn.Module):
                  latent_lift_proj_dim = 64, # Intermediate latent dimension in the lifting/projection layer
                  add_inv = True,            # Add invariant block (I) after the intermediate connections?
                  activation = 'cno_lrelu',   # Activation function can be 'cno_lrelu' or 'lrelu'
-                 attention = True
+                 attention = False
                 ):
         
         super(CNO, self).__init__()
@@ -472,9 +472,10 @@ class CNO(nn.Module):
         self.res_nets = torch.nn.Sequential(*self.res_nets)    
 
         # Define self attention layer
-        self.attention = True
-        self.self_attention = LinearAttention(self.decoder_features_out[-1])
-
+        self.attention = attention
+        if self.attention == True:
+            self.self_attention = LinearAttention(self.decoder_features_out[-1])        
+    
     def forward(self, x):
                  
         #Execute Lift ---------------------------------------------------------
@@ -514,10 +515,12 @@ class CNO(nn.Module):
             x = self.decoder[i](x)
         
         # Execute self attention
-        y = self.self_attention(x)
+        if self.attention:
+            y = self.self_attention(x)
+        else:
+            y = 0
 
         x = x + y
-
 
         # Cat & Execute Projetion ---------------------------------------------
 

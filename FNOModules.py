@@ -265,6 +265,7 @@ class FNO2d(nn.Module):
             else:
                 x1 = self.self_attention(x1)
                 x = x1 + x2
+                
 
         x = x[..., :-x1_padding, :-x2_padding]
         x = x.permute(0, 2, 3, 1)
