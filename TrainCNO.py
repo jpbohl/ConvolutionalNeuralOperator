@@ -93,9 +93,14 @@ else:
     dataloc = sys.argv[5]
     which_example = sys.argv[6]
 
+    if len(sys.argv) == 8:
+        time0 = int(sys.argv[-1])
+    else:
+        time0 = 0
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-config = {"time" : time, **training_properties, **model_architecture_}
+config = {"time" : time, "initial time" : time0, **training_properties, **model_architecture_}
 wandb.login()
 
 run = wandb.init(
@@ -130,7 +135,7 @@ if which_example == "Straka":
     example = Straka(model_architecture_, device, batch_size, training_samples, time=time, s=s, dataloc=dataloc, cluster=cluster)
 
 elif which_example == "StrakaMB":
-    example = StrakaMB(model_architecture_, device, batch_size, training_samples, time=time, s=s, dataloc=dataloc, cluster=cluster)
+    example = StrakaMB(model_architecture_, device, batch_size, training_samples, time=time, time0=time0, s=s, dataloc=dataloc, cluster=cluster)
 
 print("Loaded example")
     

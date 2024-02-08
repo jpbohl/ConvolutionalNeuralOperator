@@ -255,7 +255,7 @@ class StrakaDataset(Dataset):
         return grid
 
 class Straka:
-    def __init__(self, network_properties, device, batch_size, training_samples = 400,time=300, s = 128, ntest=1, in_dist = True, dataloc="data/", cluster=True):
+    def __init__(self, network_properties, device, batch_size, training_samples = 400,time=300, s = 128, ntest=56, in_dist = True, dataloc="data/", cluster=True):
         
         #Must have parameters: ------------------------------------------------        
 
@@ -311,7 +311,8 @@ class Straka:
                                 conv_kernel=kernel_size,
                                 lrelu_upsampling = lrelu_upsampling,
                                 half_width_mult = half_width_mult,
-                                channel_multiplier = channel_multiplier
+                                channel_multiplier = channel_multiplier,
+                                attention = attention
                                 ).to(device)
         
         #Change number of workers accoirding to your preference
