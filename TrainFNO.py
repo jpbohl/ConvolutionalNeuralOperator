@@ -2,16 +2,16 @@ import copy
 import json
 import os
 import sys
+import wandb
 
 import pandas as pd
 import torch
-from tqdm import tqdm
 
-import wandb
 import matplotlib.pyplot as plt
 
 from Problems.Straka import StrakaFNO
 from Problems.StrakaMB import StrakaFNO as StrakaFNOMB
+from TrainUtils import Trainer
 from datetime import date
 
 if len(sys.argv) == 1:
@@ -24,7 +24,7 @@ if len(sys.argv) == 1:
         "weight_decay": 1e-8,
         "scheduler_step": 0.97,
         "scheduler_gamma": 10,
-        "epochs": 2,
+        "epochs": 10,
         "batch_size": 16,
         "exp": 1,
         "training_samples": 3,
@@ -87,6 +87,7 @@ training_samples = training_properties["training_samples"]
 p = training_properties["exp"]
 s = fno_architecture_["in_size"]
 
+torch.use_deterministic_algorithms(True, warn_only=True)
 
 if which_example == "Straka":
     example = StrakaFNO(fno_architecture_, device, batch_size, training_samples,time=time, s=s, dataloc=dataloc, cluster=cluster)
@@ -114,134 +115,39 @@ optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=scheduler_step, gamma=scheduler_gamma)
 
 # Initializing training parameters
-freq_print = 1
-if p == 1:
-    loss = torch.nn.SmoothL1Loss()
-elif p == 2:
-    loss = torch.nn.MSELoss()
+loss = torch.nn.MSELoss()
 best_model_testing_error = 1000
 patience = int(0.1 * epochs)
 counter = 0
 
-def log_plots(model, val_loader):
-    """
-    Plotting function called when training loop exits.
-    Plots the predictions on a batch of the test set and
-    uploads them to wandb.
-    """
-    # Get single test batch
-    input_batch, output_batch = next(iter(val_loader))
-    input_batch = input_batch.to(device)
-    output_batch = output_batch.to(device)
-
-    with torch.no_grad():
-        pred = model(input_batch)
-        diffs = output_batch - pred
-
-    # Logging initial conidition channel of inputs as well as outputs and
-    # differences between predictions and labels
-    input_img = input_batch[0, :, :, -1].cpu().numpy().T
-    pred_img = pred[0, :, :, 0].cpu().numpy().T
-    label = output_batch[0, :, :, 0].cpu().numpy().T
-    diff_img = diffs[0, :, :, 0].cpu().numpy().T
-
-    # Plotting intial condition
-    figi, ax = plt.subplots()
-
-    ic = ax.pcolormesh(input_img, cmap="Blues_r")
-    ax.set_title("Initial condition")
-    figi.colorbar(ic, ax=ax)
-
-    # Plotting predictions
-    figp, axes = plt.subplots(1, 2, sharey=True)
-
-    labels = axes[0].pcolormesh(label, cmap="Blues_r")
-    axes[0].set_title("Labels")
-    figp.colorbar(labels, ax=axes[0])
-
-    fno = axes[1].pcolormesh(pred_img, cmap="Blues_r")
-    axes[1].set_title("FNO")
-    figp.colorbar(fno, ax=axes[1])
-
-    # Plotting errors
-    fige, axes = plt.subplots(1, 2, sharey=True)
-
-    labels = axes[0].pcolormesh(label, cmap="Blues_r")
-    axes[0].set_title("Labels")
-    fige.colorbar(labels, ax=axes[0])
-
-    error_fno = axes[1].pcolormesh(diff_img, cmap="Blues_r")
-    axes[1].set_title("FNO Error")
-    fige.colorbar(error_fno, ax=axes[1])
-
-    wandb.log({"Initial conditions" : wandb.Image(figi)})
-    wandb.log({"Predictions" : wandb.Image(figp)})
-    wandb.log({"Differences" : wandb.Image(fige)})
-
-    print("Exiting code")
+trainer = Trainer(training_properties, example, device)
 
 # Training loop
+print("Training")
 for epoch in range(epochs):
-    with tqdm(unit="batch", disable=False) as tepoch:
-        model.train()
-        tepoch.set_description(f"Epoch {epoch}")
-        train_mse = 0.0
-        running_relative_train_mse = 0.0
-        for step, (input_batch, output_batch) in enumerate(train_loader):
-            optimizer.zero_grad()
-            input_batch = input_batch.to(device)
-            output_batch = output_batch.to(device)
-            output_pred_batch = model(input_batch)
 
-            loss_f = loss(output_pred_batch, output_batch) / loss(torch.zeros_like(output_batch).to(device), output_batch)
+    train_mse = trainer.train_epoch()
+    val_loss = trainer.validate()
 
-            loss_f.backward()
-            optimizer.step()
-            train_mse = train_mse * step / (step + 1) + loss_f.item() / (step + 1)
-            tepoch.set_postfix({'Batch': step + 1, 'Train loss (in progress)': train_mse})
-                        
-        wandb.log(({"Train Loss" : train_mse}), step=epoch)
-
-        with torch.no_grad():
-            model.eval()
-            test_relative_l2 = 0.0
-            train_relative_l2 = 0.0
-
-            for step, (input_batch, output_batch) in enumerate(test_loader):
-                input_batch = input_batch.to(device)
-                output_batch = output_batch.to(device)
-                output_pred_batch = model(input_batch)
-                
-                loss_f = torch.mean(abs(output_pred_batch - output_batch)) / torch.mean(abs(output_batch)) * 100
-                test_relative_l2 += loss_f.item()
-            test_relative_l2 /= len(test_loader)
-            
-            wandb.log(({"Relative L2 Test Error" : test_relative_l2}), step=epoch)
-
-            if test_relative_l2 < best_model_testing_error:
-                best_model_testing_error = test_relative_l2
-                best_model = copy.deepcopy(model)
-                torch.save(best_model.state_dict(), folder + "/model_weights.pt")
-                wandb.log(({"Best Relative Test Error" : best_model_testing_error}), step=epoch)
-                counter = 0
-                
-            else:
-                counter +=1
-
-        tepoch.set_postfix({'Train loss': train_mse, "Relative Train": train_relative_l2, "Relative Val loss": test_relative_l2})
-        tepoch.close()
+    print(f"Epoch {epoch} // MSE {train_mse} // Relative Val Loss {val_loss}")
         
-        print(epoch, "val_loss/val_loss", test_relative_l2, epoch)
+    wandb.log(({
+        "Train Loss" : train_mse,
+        "Relative L2 Test Error" : val_loss}), 
+        step=epoch)
+
+    if True:
         
-        with open(folder + '/errors.txt', 'w') as file:
-            file.write("Training Error: " + str(train_mse) + "\n")
-            file.write("Best Testing Error: " + str(best_model_testing_error) + "\n")
-            file.write("Current Epoch: " + str(epoch) + "\n")
-            file.write("Params: " + str(n_params) + "\n")
-        scheduler.step()
-    
+        # Saving model
+        weights = trainer.model.state_dict()
+        torch.save(weights, folder + "/model_weights.pt")
+        torch.save(trainer.model, folder + "/model.pkl")
+
+        best_model_testing_error = val_loss
+        counter = 0
+
     if counter > patience:
-        print("Early Stopping")
+        print("Early stopping")
         break
-        
-log_plots(best_model, test_loader)
+
+    counter += 1

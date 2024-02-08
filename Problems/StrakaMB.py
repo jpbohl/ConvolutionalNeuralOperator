@@ -95,11 +95,18 @@ class StrakaDataset(Dataset):
         self.files_t0 = [dataloc + f + "/fields/0.nc" for f in files[:total_samples]]
         self.files_t1 = [dataloc + f + f"/fields/{time}.nc" for f in files[:total_samples]]
                     
-        drop = ["u", "v", "w", "s", "buoyancy_frequency"]
+        drop_t = ["u", "w", "v", "s", "buoyancy_frequency"]
+        drop_wind = ["v", "temperature", "s", "buoyancy_frequency"]
 
         parallel = True if cluster else False
-        self.t0 = xr.open_mfdataset(self.files_t0, combine="nested", concat_dim="index", parallel=True, drop_variables=drop, autoclose=True).temperature                    
-        self.t1 = xr.open_mfdataset(self.files_t1, combine="nested", concat_dim="index", parallel=True, drop_variables=drop, autoclose=True).temperature
+        self.t0 = xr.open_mfdataset(self.files_t0, combine="nested", concat_dim="index", parallel=True, drop_variables=drop_t, autoclose=True).temperature                    
+        self.t1 = xr.open_mfdataset(self.files_t1, combine="nested", concat_dim="index", parallel=True, drop_variables=drop_t, autoclose=True).temperature
+        wind = xr.open_mfdataset(self.files_t1, combine="nested", concat_dim="index", parallel=True, drop_variables=drop_wind, autoclose=True)
+
+        # vorticity 
+        dwdx = wind.w.differentiate("x")
+        dudz = wind.u.differentiate("z")
+        self.vorticity = dwdx - dudz
 
         # Background profile 
         self.bpf = self.t0.isel(index=0, x=0).data
@@ -151,10 +158,12 @@ class StrakaDataset(Dataset):
             # Save data to avoid interpolating every time a sample is loaded
             self.t0.to_netcdf(TMP + "t0.nc", mode="w")
             self.t1.to_netcdf(TMP + "t1.nc", mode="w")
+            self.vorticity.to_netcdf(TMP + "vorticity.nc", mode="w")
 
             # Reload data
             self.t0 = xr.open_dataarray(TMP + "t0.nc", engine="netcdf4")
             self.t1 = xr.open_dataarray(TMP + "t1.nc", engine="netcdf4")
+            self.vorticity = xr.open_dataarray(TMP + "vorticity.nc", engine="netcdf4")
 
         # Computing stats for standardization
         self.mean_ic = self.t0.mean().compute()
@@ -203,8 +212,9 @@ class StrakaDataset(Dataset):
         # Assembling inputs
         inputs = torch.tensor(self.t0.isel(index=index).compute().data, dtype=torch.float32)
 
-        # Getting labels
+        # Getting labels and vorticity
         labels = torch.tensor(self.t1.isel(index=index).compute().data, dtype=torch.float32)
+        vorticity = torch.tensor(self.vorticity.isel(index=index).compute().data, dtype=torch.float32)
 
         # Standardize data
         inputs = (inputs - self.mean_data) / self.std_data
@@ -225,7 +235,7 @@ class StrakaDataset(Dataset):
         assert not inputs.isnan().any()
         assert not labels.isnan().any()
 
-        return inputs, labels
+        return inputs, labels, vorticity
 
     def get_grid(self):
         x = torch.linspace(0, 1, self.s)

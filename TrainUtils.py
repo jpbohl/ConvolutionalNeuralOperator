@@ -11,6 +11,7 @@ class Trainer():
         weight_decay = training_properties["weight_decay"]
         scheduler_step = training_properties["scheduler_step"]
         scheduler_gamma = training_properties["scheduler_gamma"]
+        self.grad_loss = training_properties["grad_loss"]
         
         # Get model and dataset
         self.model = example.model
@@ -30,7 +31,7 @@ class Trainer():
         self.model.train()
         train_mse = 0.0
         running_relative_train_mse = 0.0
-        for step, (input_batch, output_batch) in enumerate(self.train_loader):
+        for step, (input_batch, output_batch, vorticity) in enumerate(self.train_loader):
             self.optimizer.zero_grad()
             input_batch = input_batch.to(self.device)
             output_batch = output_batch.to(self.device)
@@ -38,6 +39,13 @@ class Trainer():
             output_pred_batch = self.model(input_batch)
 
             loss_f = self.loss(output_pred_batch, output_batch) / self.loss(torch.zeros_like(output_batch).to(self.device), output_batch)
+
+            if self.grad_loss:
+                pred_dx, pred_dy = torch.gradients(output_pred_batch, edge_order=2)
+                output_dx, output_dy = torch.gradients(output_batch, edge_order=2)
+
+                loss_f += self.loss(pred_dx, output_dx)
+                loss_f += self.loss(pred_dy, output_dy)
 
             loss_f.backward()
             self.optimizer.step()
@@ -54,7 +62,7 @@ class Trainer():
             test_relative_l2 = 0.0
             train_relative_l2 = 0.0
             
-            for step, (input_batch, output_batch) in enumerate(self.val_loader):
+            for step, (input_batch, output_batch, vorticity) in enumerate(self.val_loader):
                 
                 input_batch = input_batch.to(self.device)
                 output_batch = output_batch.to(self.device)
