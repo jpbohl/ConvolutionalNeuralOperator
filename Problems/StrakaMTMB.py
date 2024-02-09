@@ -256,7 +256,7 @@ class StrakaDataset(Dataset):
         return grid
 
 class Straka:
-    def __init__(self, network_properties, device, batch_size, training_samples = 400,time=300, s = 128, ntest=1, in_dist = True, dataloc="data/", cluster=True):
+    def __init__(self, network_properties, device, batch_size, training_samples = 400,time=300, s = 128, ntest=56, in_dist = True, dataloc="data/", cluster=True):
         
         #Must have parameters: ------------------------------------------------        
 
@@ -329,7 +329,7 @@ class Straka:
 
 
 class StrakaFNO:
-    def __init__(self, network_properties, device, batch_size, training_samples = 3, time=300, s = 128, in_dist = True, dataloc="data/", cluster=True):
+    def __init__(self, network_properties, device, batch_size, training_samples = 400, s = 256, in_dist = True, dataloc="data/", cluster=True):
         
         retrain = network_properties["retrain"]
         torch.manual_seed(retrain)
@@ -349,9 +349,9 @@ class StrakaFNO:
         else:
             num_workers = 0
         
-        self.train_loader = DataLoader(StrakaDataset(dataloc, "training", self.N_Fourier_F, training_samples, time=time, s=s, cno=False, cluster=cluster), 
+        self.train_loader = DataLoader(StrakaDataset(dataloc, "training", self.N_Fourier_F, training_samples, s=s, cno=False, cluster=cluster), 
                                 batch_size=batch_size, shuffle=True, num_workers=num_workers)
-        self.val_loader = DataLoader(StrakaDataset(dataloc, "validation", self.N_Fourier_F, training_samples, time=time, s=s, cno=False, cluster=cluster), 
+        self.val_loader = DataLoader(StrakaDataset(dataloc, "validation", self.N_Fourier_F, training_samples, s=s, cno=False, cluster=cluster), 
                                 batch_size=batch_size, shuffle=False, num_workers=num_workers)
-        self.test_loader = DataLoader(StrakaDataset(dataloc, "test", self.N_Fourier_F, training_samples, time=time, s=s, in_dist=in_dist, cno=False, cluster=cluster), 
+        self.test_loader = DataLoader(StrakaDataset(dataloc, "test", self.N_Fourier_F, training_samples, s=s, in_dist=in_dist, cno=False, cluster=cluster), 
                                 batch_size=batch_size, shuffle=False, num_workers=num_workers)
