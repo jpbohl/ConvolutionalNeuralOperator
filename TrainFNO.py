@@ -28,6 +28,7 @@ if len(sys.argv) == 1:
         "batch_size": 16,
         "exp": 1,
         "training_samples": 3,
+        "loss" : "weighted"
     }
     fno_architecture_ = {
         "width": 16,
@@ -46,7 +47,7 @@ if len(sys.argv) == 1:
 
     # Save the models here:
     folder = "TrainedModels/"
-    dataloc = "/Users/jan/sempaper/StrakaData/"
+    dataloc = "/Users/jan/sempaper/StrakaMB/data/"
 
 else:
     # Do we use a script to run the code (for cluster):
@@ -90,9 +91,9 @@ s = fno_architecture_["in_size"]
 torch.use_deterministic_algorithms(True, warn_only=True)
 
 if which_example == "Straka":
-    example = StrakaFNO(fno_architecture_, device, batch_size, training_samples,time=time, s=s, dataloc=dataloc, cluster=cluster)
+    example = StrakaFNO(fno_architecture_, device, batch_size, training_samples, time=time, s=s, dataloc=dataloc, cluster=cluster)
 elif which_example == "StrakaMB":
-    example = StrakaFNOMB(fno_architecture_, device, batch_size, training_samples,time=time, s=s, dataloc=dataloc, cluster=cluster)
+    example = StrakaFNOMB(fno_architecture_, device, batch_size, training_samples, time=time, s=s, dataloc=dataloc, cluster=cluster)
 else:
     raise ValueError("Problem not implemented")
 

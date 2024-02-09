@@ -106,6 +106,10 @@ class StrakaDataset(Dataset):
         wind = xr.open_mfdataset(self.files_t1, combine="nested", concat_dim="index", parallel=True, drop_variables=drop_wind, autoclose=True)
 
         # vorticity 
+        new_zs = np.linspace(0, 6400, s)
+        wind = wind.isel(x=np.arange(511, 1023)).coarsen(x=2).mean()
+        wind = wind.interp(z=new_zs, kwargs={"fill_value":"extrapolate"})
+
         dwdx = wind.w.differentiate("x")
         dudz = wind.u.differentiate("z")
         self.vorticity = dwdx - dudz
@@ -118,29 +122,13 @@ class StrakaDataset(Dataset):
         self.t1 = self.t1 - self.bpf
         
         # Selecting windows of interest
-        if time == 300:
-            new_zs = np.linspace(0, 6400, 256)
-            self.t0 = self.t0.isel(x=np.arange(511, 511+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
-            self.t1 = self.t1.isel(x=np.arange(511, 511+256)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
+        new_zs = np.linspace(0, 6400, s)
 
-        elif time == 600:
-            
-            new_zs = np.linspace(0, 6400, s)
+        # interpolate in z and coarsen in x
+        self.t0 = self.t0.isel(x=np.arange(511, 511+s)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
+        self.t1 = self.t1.isel(x=np.arange(511, 1023)).coarsen(x=2).mean()
+        self.t1 = self.t1.interp(z=new_zs, kwargs={"fill_value":"extrapolate"})
 
-            self.t0 = self.t0.isel(x=np.arange(511, 511+s)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
-            self.t1 = self.t1.isel(x=np.arange(511, 1023)).coarsen(x=2).mean()
-            self.t1 = self.t1.interp(z=new_zs, kwargs={"fill_value":"extrapolate"})
-        
-
-        elif time == 900:
-            new_zs = np.linspace(0, 6400, s)
-
-            self.t0 = self.t0.isel(x=np.arange(511, 511+s)).interp(z=new_zs, kwargs={"fill_value": "extrapolate"})
-            self.t1 = self.t1.isel(x=np.arange(511, 1023)).coarsen(x=2).mean()
-            self.t1 = self.t1.interp(z=new_zs, kwargs={"fill_value":"extrapolate"})
-
-        else:
-            raise NotImplementedError("Only Timesteps 300, 600, and 900 implemented")
 
         if cluster:
             # Write files to tmp
@@ -209,6 +197,7 @@ class StrakaDataset(Dataset):
         # Getting labels and vorticity
         labels = torch.tensor(self.t1.isel(index=index).compute().data, dtype=torch.float32)
         vorticity = torch.tensor(self.vorticity.isel(index=index).compute().data, dtype=torch.float32)
+        weights = 1000 * abs(vorticity) + 1
 
         # Standardize data
         inputs = (inputs - self.mean_data) / self.std_data
@@ -229,7 +218,7 @@ class StrakaDataset(Dataset):
         assert not inputs.isnan().any()
         assert not labels.isnan().any()
 
-        return inputs, labels, vorticity
+        return inputs, labels, weights
 
     def get_grid(self):
         x = torch.linspace(0, 1, self.s)

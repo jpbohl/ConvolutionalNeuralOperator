@@ -1,6 +1,21 @@
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
+from data_losses import H1Loss
+
+class RMSE(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self,x, y, w):
+        return torch.mean((x - y) ** 2)  / torch.mean(y ** 2)
+
+class WMSE(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self,x, y, w):
+        return torch.mean(w * ((x - y) ** 2))  / torch.mean(w * y ** 2)
 
 class Trainer():
 
@@ -11,6 +26,7 @@ class Trainer():
         weight_decay = training_properties["weight_decay"]
         scheduler_step = training_properties["scheduler_step"]
         scheduler_gamma = training_properties["scheduler_gamma"]
+        loss = training_properties["loss"]
         
         # Get model and dataset
         self.model = example.model
@@ -23,21 +39,27 @@ class Trainer():
         self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=scheduler_step, gamma=scheduler_gamma)
         
         # Loss Function
-        self.loss = torch.nn.MSELoss()
+        if loss == "mse":
+            self.loss = lambda x, y, w : torch.nn.functional.mse_loss(x, y) 
+        elif loss == "rmse":
+            self.loss = RMSE()
+        elif loss == "weighted":
+            self.loss = WMSE()
         self.device = device
 
     def train_epoch(self):
         self.model.train()
         train_mse = 0.0
         running_relative_train_mse = 0.0
-        for step, (input_batch, output_batch) in enumerate(self.train_loader):
+        
+        for step, (x, y, weights) in enumerate(self.train_loader):
             self.optimizer.zero_grad()
-            input_batch = input_batch.to(self.device)
-            output_batch = output_batch.to(self.device)
+            x = x.to(self.device)
+            y = y.to(self.device)
 
-            output_pred_batch = self.model(input_batch)
+            pred = self.model(x)
 
-            loss_f = self.loss(output_pred_batch, output_batch) / self.loss(torch.zeros_like(output_batch).to(self.device), output_batch)
+            loss_f = self.loss(pred, y, weights)
 
             loss_f.backward()
             self.optimizer.step()
@@ -54,13 +76,13 @@ class Trainer():
             test_relative_l2 = 0.0
             train_relative_l2 = 0.0
             
-            for step, (input_batch, output_batch) in enumerate(self.val_loader):
+            for step, (x, y, _) in enumerate(self.val_loader):
                 
-                input_batch = input_batch.to(self.device)
-                output_batch = output_batch.to(self.device)
-                output_pred_batch = self.model(input_batch)
+                x = x.to(self.device)
+                y = y.to(self.device)
+                pred = self.model(x)
                 
-                loss_f = torch.mean(abs(output_pred_batch - output_batch)) / torch.mean(abs(output_batch)) * 100
+                loss_f = torch.mean(abs(pred - y)) / torch.mean(abs(y)) * 100
                 test_relative_l2 += loss_f.item()
             test_relative_l2 /= len(self.val_loader)
 
@@ -73,19 +95,19 @@ class Trainer():
         uploads them to wandb.
         """
         # Get single test batch
-        input_batch, output_batch = next(iter(self.val_loader))
-        input_batch = input_batch.to(device)
-        output_batch = output_batch.to(device)
+        x, y = next(iter(self.val_loader))
+        x = x.to(device)
+        y = y.to(device)
 
         with torch.no_grad():
-            pred = self.model(input_batch)
-            diffs = output_batch - pred
+            pred = self.model(x)
+            diffs = y - pred
 
         # Logging initial conidition channel of inputs as well as outputs and
         # differences between predictions and labels
-        input_img = input_batch[0, 2, :, :].detach().cpu().numpy().T
+        input_img = x[0, 2, :, :].detach().cpu().numpy().T
         pred_img = pred[0, 0, :, :].cpu().numpy().T
-        label = output_batch[0, 0, :, :].detach().cpu().numpy().T
+        label = y[0, 0, :, :].detach().cpu().numpy().T
         diff_img = diffs[0, 0, :, :].cpu().numpy().T
 
         # Plotting intial condition
